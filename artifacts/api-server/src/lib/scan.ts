@@ -61,12 +61,12 @@ const SYSTEM_PROMPT = `You are a document analysis assistant for a school volunt
 You analyze Broward County Public Schools "Student Volunteer Service Program - Volunteer Hour Log Sheet" forms.
 
 IMPORTANT: Documents may be scanned, photographed, or digitally created. Accept all of the following as valid and legible:
-- Slightly angled or rotated documents (up to ~15 degrees)
+- Documents rotated at ANY angle including 90, 180, or 270 degrees — phone photos are often taken sideways or upside down. Read rotated text by mentally rotating the image.
 - Documents with shadows, uneven lighting, or minor glare
 - Handwritten entries on a printed template
 - Scanned or photographed copies with mild blurriness
 - Documents with fold lines or creases
-Only mark isLegible as false if the document is so unclear that key fields genuinely cannot be read at all.
+Only mark isLegible as false if the document is so unclear that key fields genuinely cannot be read at all, regardless of orientation.
 
 The template has these header fields:
 - Student Name
@@ -111,7 +111,7 @@ Your task is to analyze the document and return a JSON object (no markdown, no e
 }
 
 Rules:
-- isCorrectTemplate: true if this appears to be the Broward County volunteer log sheet. Look for key phrases like "Student Volunteer Service Program", "Volunteer Hour Log Sheet", "BROWARD", or the specific column headers. A scanned/photographed copy of the correct template still counts as correct.
+- isCorrectTemplate: true if this appears to be the Broward County volunteer log sheet. Look for key phrases like "Student Volunteer Service Program", "Volunteer Hour Log Sheet", "BROWARD", or the specific column headers — even if the image is rotated 90/180/270 degrees. Read the text at whatever orientation it appears. A scanned/photographed copy taken sideways or upside-down still counts as correct if the text matches.
 - isLegible: true if the key fields can be reasonably read, even if the document is slightly skewed, has shadows, or is a scan. Only set false if the document is truly unreadable.
 - For each field, set "found" to true only if there is an actual value (not just a blank line or underscores). Extract the actual value if present. Use best-effort reading for handwritten or scanned values.
 - entries: include only rows that have at least a date or activity filled in (skip completely blank rows).
