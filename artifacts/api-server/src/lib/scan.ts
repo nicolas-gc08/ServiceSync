@@ -111,6 +111,7 @@ Rules:
 - For each field, set "found" to true only if there is an actual value (not just a blank line or underscores). Extract the actual value if present. Use best-effort reading for handwritten or scanned values.
 - entries: include only rows that have at least a date or activity filled in (skip completely blank rows).
 - hasSignature: set to true if a contact person's name or signature appears present for that entry.
+- When reading handwritten numbers, be especially careful: the number "11" written by hand can look like two close "1"s, or like "ii" in garbled text. Always cross-check the "Total Hours Worked" value with the Time In and Time Out times (e.g. 1:00 to 12:00 = 11 hours, not 1 hour). Use arithmetic to verify: if Time In and Time Out suggest more hours than the written value, trust the time calculation.
 - warnings: list user-friendly messages for missing optional/expected fields only. E.g. "School year not filled in", "Contact signature missing on entry 1". Do NOT warn about scan quality, angles, or shadows.
 - errors: list only critical problems that would prevent processing. E.g. "This does not appear to be the correct volunteer log template", "No service entries found". Do NOT add errors for minor scan imperfections.
 - If isCorrectTemplate is false, set errors to ["This does not appear to be the Broward County volunteer log template. Please upload the correct form."] and skip other analysis.
@@ -151,7 +152,7 @@ async function convertScannedPdfToImage(pdfPath: string): Promise<string | null>
       "-png",
       "-f", "1",
       "-l", "1",
-      "-r", "150",
+      "-r", "300",
       pdfPath,
       prefix,
     ]);
@@ -207,8 +208,11 @@ async function analyzeWithLLM(content: string, isImage: boolean): Promise<ScanRe
   });
 
   const raw = response.choices[0]?.message?.content ?? "";
+  console.log("[scan] raw AI response:", raw.slice(0, 500));
   const cleaned = raw.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "").trim();
   const parsed = JSON.parse(cleaned);
+  console.log("[scan] parsed entries:", JSON.stringify(parsed.entries));
+  console.log("[scan] parsed fields.totalHoursVolunteered:", JSON.stringify(parsed.fields?.totalHoursVolunteered));
 
   const { isCorrectTemplate, isLegible, fields, entries, warnings, errors } = parsed;
 
