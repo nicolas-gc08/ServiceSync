@@ -260,6 +260,8 @@ export default function SubmissionForm() {
     document.title = "ServiceSync";
   }, []);
 
+  const [showInstructions, setShowInstructions] = useState(true);
+
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
@@ -445,26 +447,36 @@ export default function SubmissionForm() {
           <CardDescription>Submit your community service hours for faculty review.</CardDescription>
         </CardHeader>
 
-        <div className="mx-6 mb-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3">
-          <p className="text-xs font-semibold text-blue-800 uppercase tracking-wide mb-2">How to Submit</p>
-          <ul className="space-y-1.5">
-            {[
-              "Take a clear picture of your service hour log or scan it as a PDF",
-              "Make sure all sections are filled out (dates, hours, signature, organization info)",
-              "Enter your details below",
-              "Upload your completed log as a file or photo",
-              "Click Submit Hours and wait for confirmation",
-              "If your submission does not go through, check for missing information or retake the photo to ensure everything is clear and readable",
-            ].map((step, i) => (
-              <li key={i} className="flex items-start gap-2 text-xs text-blue-800">
-                <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-blue-200 text-blue-800 font-semibold text-[10px]">
-                  {i + 1}
-                </span>
-                <span>{step}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
+        {showInstructions && (
+          <div className="mx-6 mb-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 relative">
+            <button
+              type="button"
+              onClick={() => setShowInstructions(false)}
+              className="absolute top-2 right-2 text-blue-400 hover:text-blue-700 transition-colors"
+              aria-label="Dismiss instructions"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+            <p className="text-xs font-semibold text-blue-800 uppercase tracking-wide mb-2">How to Submit</p>
+            <ul className="space-y-1.5">
+              {[
+                "Take a clear picture of your service hour log or scan it as a PDF",
+                "Make sure all sections are filled out (dates, hours, signature, organization info)",
+                "Enter your details below",
+                "Upload your completed log as a file or photo",
+                "Click Submit Hours and wait for confirmation",
+                "If your submission does not go through, check for missing information or retake the photo to ensure everything is clear and readable",
+              ].map((step, i) => (
+                <li key={i} className="flex items-start gap-2 text-xs text-blue-800">
+                  <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-blue-200 text-blue-800 font-semibold text-[10px]">
+                    {i + 1}
+                  </span>
+                  <span>{step}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
 
         <CardContent>
           <Form {...form}>
