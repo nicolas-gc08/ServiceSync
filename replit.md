@@ -34,6 +34,20 @@ A full-stack web application for managing student volunteer hours submissions at
 - Admin password: `volunteer2024`
 - Can be overridden via `ADMIN_USERNAME` and `ADMIN_PASSWORD` environment variables
 
+## Email Notifications
+
+Student email notifications are sent when a submission is approved or rejected. Requires SMTP configuration via environment variables:
+
+| Variable | Description | Example |
+|---|---|---|
+| `SMTP_HOST` | SMTP server hostname | `smtp.gmail.com` |
+| `SMTP_PORT` | SMTP port (default: 587) | `587` |
+| `SMTP_USER` | SMTP username / email | `you@gmail.com` |
+| `SMTP_PASS` | SMTP password or app password | `yourpassword` |
+| `SMTP_FROM` | Sender address (defaults to SMTP_USER) | `noreply@school.edu` |
+
+If not configured, email sending is skipped silently (no error). For Gmail, use an App Password (not your main password).
+
 ## Key Commands
 
 - `pnpm run typecheck` — full typecheck across all packages

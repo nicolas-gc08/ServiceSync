@@ -3,7 +3,7 @@ import multer from "multer";
 import path from "path";
 import { randomUUID } from "crypto";
 import { db, submissionsTable } from "@workspace/db";
-import { eq, ilike, or, desc } from "drizzle-orm";
+import { eq, ilike, or } from "drizzle-orm";
 import {
   CreateSubmissionBody,
   UpdateSubmissionBody,
@@ -11,6 +11,7 @@ import {
   GetSubmissionParams,
   ListSubmissionsQueryParams,
 } from "@workspace/api-zod";
+import { sendStatusNotification } from "../lib/email";
 
 const router: IRouter = Router();
 
@@ -62,7 +63,20 @@ router.post("/submissions/upload", upload.single("file"), async (req, res): Prom
 router.get("/submissions/file/:filename", async (req, res): Promise<void> => {
   const raw = Array.isArray(req.params.filename) ? req.params.filename[0] : req.params.filename;
   const filePath = path.join(UPLOADS_DIR, raw);
-  res.sendFile(filePath, (err) => {
+  const ext = path.extname(raw).toLowerCase();
+  const mimeTypes: Record<string, string> = {
+    ".pdf": "application/pdf",
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".png": "image/png",
+    ".webp": "image/webp",
+    ".gif": "image/gif",
+  };
+  const contentType = mimeTypes[ext] ?? "application/octet-stream";
+  res.setHeader("Content-Type", contentType);
+  res.setHeader("Content-Disposition", "inline");
+  res.setHeader("X-Frame-Options", "SAMEORIGIN");
+  res.sendFile(filePath, { root: "/" }, (err) => {
     if (err) {
       res.status(404).json({ error: "File not found" });
     }
@@ -175,6 +189,16 @@ router.patch("/submissions/:id", async (req, res): Promise<void> => {
     return;
   }
 
+  const [existing] = await db
+    .select()
+    .from(submissionsTable)
+    .where(eq(submissionsTable.id, paramsResult.data.id));
+
+  if (!existing) {
+    res.status(404).json({ error: "Submission not found" });
+    return;
+  }
+
   const updateData: Partial<typeof submissionsTable.$inferInsert> = {};
   if (bodyResult.data.status !== undefined) {
     updateData.status = bodyResult.data.status;
@@ -192,6 +216,21 @@ router.patch("/submissions/:id", async (req, res): Promise<void> => {
   if (!updated) {
     res.status(404).json({ error: "Submission not found" });
     return;
+  }
+
+  const newStatus = updated.status;
+  const prevStatus = existing.status;
+  const statusChanged = newStatus !== prevStatus;
+  const isDecision = newStatus === "approved" || newStatus === "rejected";
+
+  if (statusChanged && isDecision && updated.email) {
+    sendStatusNotification({
+      to: updated.email,
+      studentName: `${updated.firstName} ${updated.lastName}`,
+      submissionId: updated.submissionId,
+      status: newStatus as "approved" | "rejected",
+      notes: updated.notes,
+    }).catch(() => {});
   }
 
   res.json(updated);

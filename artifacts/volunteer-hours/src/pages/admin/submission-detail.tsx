@@ -243,26 +243,49 @@ export default function SubmissionDetail() {
             <CardHeader className="py-3 px-4 border-b bg-muted/30">
               <CardTitle className="text-sm font-medium flex items-center justify-between">
                 <span>Document Viewer</span>
-                <span className="text-xs font-normal text-muted-foreground max-w-[300px] truncate" title={submission.fileName}>
-                  {submission.fileName}
-                </span>
+                <div className="flex items-center gap-3">
+                  <span className="text-xs font-normal text-muted-foreground max-w-[200px] truncate" title={submission.fileName}>
+                    {submission.fileName}
+                  </span>
+                  <a
+                    href={submission.fileUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs font-normal text-primary hover:underline flex items-center gap-1"
+                  >
+                    Open in new tab ↗
+                  </a>
+                </div>
               </CardTitle>
             </CardHeader>
             <div className="flex-1 p-0 relative bg-muted/10">
-              {submission.fileUrl.match(/\.(jpg|jpeg|png|webp)$/i) ? (
+              {submission.fileUrl.match(/\.(jpg|jpeg|png|webp|gif)$/i) ? (
                 <div className="absolute inset-0 flex items-center justify-center p-4">
-                  <img 
-                    src={submission.fileUrl} 
-                    alt="Proof of hours" 
+                  <img
+                    src={submission.fileUrl}
+                    alt="Proof of hours"
                     className="max-w-full max-h-full object-contain rounded-md shadow-sm border"
                   />
                 </div>
               ) : (
-                <iframe 
-                  src={submission.fileUrl} 
-                  className="w-full h-full border-0" 
+                <object
+                  data={submission.fileUrl}
+                  type="application/pdf"
+                  className="w-full h-full"
                   title="Document Preview"
-                />
+                >
+                  <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 text-muted-foreground">
+                    <p className="text-sm">PDF preview is not available in this browser.</p>
+                    <a
+                      href={submission.fileUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-sm text-primary font-medium hover:underline"
+                    >
+                      Click here to open the file ↗
+                    </a>
+                  </div>
+                </object>
               )}
             </div>
           </Card>
