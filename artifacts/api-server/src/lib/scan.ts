@@ -2,7 +2,11 @@ import OpenAI from "openai";
 import { createRequire } from "module";
 import fs from "fs/promises";
 import path from "path";
+import { execFile } from "child_process";
+import { promisify } from "util";
+import os from "os";
 
+const execFileAsync = promisify(execFile);
 const _require = createRequire(import.meta.url);
 const pdfParse: (buffer: Buffer) => Promise<{ text: string }> = _require("pdf-parse");
 
@@ -46,12 +50,20 @@ export interface ScanResult {
   errors: string[];
 }
 
-const SYSTEM_PROMPT = `You are a document analysis assistant for a school volunteer hours program. 
+const SYSTEM_PROMPT = `You are a document analysis assistant for a school volunteer hours program.
 You analyze Broward County Public Schools "Student Volunteer Service Program - Volunteer Hour Log Sheet" forms.
+
+IMPORTANT: Documents may be scanned, photographed, or digitally created. Accept all of the following as valid and legible:
+- Slightly angled or rotated documents (up to ~15 degrees)
+- Documents with shadows, uneven lighting, or minor glare
+- Handwritten entries on a printed template
+- Scanned or photographed copies with mild blurriness
+- Documents with fold lines or creases
+Only mark isLegible as false if the document is so unclear that key fields genuinely cannot be read at all.
 
 The template has these header fields:
 - Student Name
-- Student Number (student ID)  
+- Student Number (student ID)
 - Graduation Year
 - School Name
 - School Year (e.g. "2024-2025")
@@ -62,7 +74,7 @@ And a log table with columns: Date, Activity or Task Performed, Time In, Time Ou
 
 And a final field: Total Hours Volunteered
 
-Your task is to analyze the extracted text and return a JSON object (no markdown, no explanation, just valid JSON) with this exact structure:
+Your task is to analyze the document and return a JSON object (no markdown, no explanation, just valid JSON) with this exact structure:
 {
   "isCorrectTemplate": boolean,
   "isLegible": boolean,
@@ -92,20 +104,57 @@ Your task is to analyze the extracted text and return a JSON object (no markdown
 }
 
 Rules:
-- isCorrectTemplate: true if this appears to be the Broward County volunteer log sheet. Look for key phrases like "Student Volunteer Service Program", "Volunteer Hour Log Sheet", "BROWARD" or the specific column headers.
-- isLegible: true if the text content is readable and makes sense. false if the content is garbled, mostly empty, or unreadable.
-- For each field, set "found" to true only if there is an actual value (not just a blank line or underscores). Extract the actual value if present.
+- isCorrectTemplate: true if this appears to be the Broward County volunteer log sheet. Look for key phrases like "Student Volunteer Service Program", "Volunteer Hour Log Sheet", "BROWARD", or the specific column headers. A scanned/photographed copy of the correct template still counts as correct.
+- isLegible: true if the key fields can be reasonably read, even if the document is slightly skewed, has shadows, or is a scan. Only set false if the document is truly unreadable.
+- For each field, set "found" to true only if there is an actual value (not just a blank line or underscores). Extract the actual value if present. Use best-effort reading for handwritten or scanned values.
 - entries: include only rows that have at least a date or activity filled in (skip completely blank rows).
-- hasSignature: set to true if a contact person's signature appears present for that entry (e.g., a name is printed, or signature text is present).
-- warnings: list user-friendly messages for missing optional/expected fields. E.g. "School year not filled in", "Contact signature missing on entry 1".
-- errors: list critical problems. E.g. "This does not appear to be the correct volunteer log template", "Document is illegible or unreadable", "No service entries found".
+- hasSignature: set to true if a contact person's name or signature appears present for that entry.
+- warnings: list user-friendly messages for missing optional/expected fields only. E.g. "School year not filled in", "Contact signature missing on entry 1". Do NOT warn about scan quality, angles, or shadows.
+- errors: list only critical problems that would prevent processing. E.g. "This does not appear to be the correct volunteer log template", "No service entries found". Do NOT add errors for minor scan imperfections.
 - If isCorrectTemplate is false, set errors to ["This does not appear to be the Broward County volunteer log template. Please upload the correct form."] and skip other analysis.
-- If isLegible is false, set errors to ["The document could not be read. Please upload a clearer scan or PDF."] and skip other analysis.`;
+- If isLegible is false, set errors to ["The document could not be read. Please upload a clearer image or PDF."] and skip other analysis.`;
+
+const EMPTY_FIELDS: ScanResult["fields"] = {
+  studentName: { found: false, value: null },
+  studentNumber: { found: false, value: null },
+  graduationYear: { found: false, value: null },
+  schoolName: { found: false, value: null },
+  schoolYear: { found: false, value: null },
+  gradeLevel: { found: false, value: null },
+  organization: { found: false, value: null },
+  totalHoursVolunteered: { found: false, value: null },
+};
 
 async function extractPdfText(filePath: string): Promise<string> {
   const buffer = await fs.readFile(filePath);
   const data = await pdfParse(buffer);
   return data.text;
+}
+
+async function convertScannedPdfToImage(pdfPath: string): Promise<string | null> {
+  const tmpDir = os.tmpdir();
+  const prefix = path.join(tmpDir, `scan_${Date.now()}`);
+  try {
+    await execFileAsync("pdftoppm", [
+      "-png",
+      "-f", "1",
+      "-l", "1",
+      "-r", "150",
+      pdfPath,
+      prefix,
+    ]);
+    const candidate = `${prefix}-1.png`;
+    try {
+      await fs.access(candidate);
+      return candidate;
+    } catch {
+      const files = await fs.readdir(tmpDir);
+      const match = files.find((f) => f.startsWith(path.basename(prefix)) && f.endsWith(".png"));
+      return match ? path.join(tmpDir, match) : null;
+    }
+  } catch {
+    return null;
+  }
 }
 
 async function analyzeWithLLM(content: string, isImage: boolean): Promise<ScanResult> {
@@ -120,11 +169,11 @@ async function analyzeWithLLM(content: string, isImage: boolean): Promise<ScanRe
         content: [
           {
             type: "text",
-            text: "Analyze this volunteer hour log form image and return the JSON analysis.",
+            text: "Analyze this volunteer hour log form image. It may be a scan or photo — please read all fields as best you can and return the JSON analysis.",
           },
           {
             type: "image_url",
-            image_url: { url: `data:image/jpeg;base64,${base64}` },
+            image_url: { url: `data:image/png;base64,${base64}` },
           },
         ],
       },
@@ -160,7 +209,6 @@ async function analyzeWithLLM(content: string, isImage: boolean): Promise<ScanRe
     status = "passed";
   }
 
-  const criticalFields = ["studentName", "studentNumber", "graduationYear", "organization"] as const;
   const message =
     status === "failed"
       ? errors[0] ?? "The document has critical issues that must be resolved."
@@ -173,16 +221,7 @@ async function analyzeWithLLM(content: string, isImage: boolean): Promise<ScanRe
     message,
     isCorrectTemplate: Boolean(isCorrectTemplate),
     isLegible: Boolean(isLegible),
-    fields: fields ?? {
-      studentName: { found: false, value: null },
-      studentNumber: { found: false, value: null },
-      graduationYear: { found: false, value: null },
-      schoolName: { found: false, value: null },
-      schoolYear: { found: false, value: null },
-      gradeLevel: { found: false, value: null },
-      organization: { found: false, value: null },
-      totalHoursVolunteered: { found: false, value: null },
-    },
+    fields: fields ?? EMPTY_FIELDS,
     entries: Array.isArray(entries) ? entries : [],
     warnings: Array.isArray(warnings) ? warnings : [],
     errors: Array.isArray(errors) ? errors : [],
@@ -199,29 +238,38 @@ export async function scanFile(filePath: string): Promise<ScanResult> {
       const base64 = buffer.toString("base64");
       return await analyzeWithLLM(base64, true);
     } else {
+      // Try text extraction first (works for digital/text-based PDFs)
       const text = await extractPdfText(filePath);
-      if (!text || text.trim().length < 20) {
-        return {
-          status: "failed",
-          message: "The document could not be read. Please upload a clearer scan or text-based PDF.",
-          isCorrectTemplate: false,
-          isLegible: false,
-          fields: {
-            studentName: { found: false, value: null },
-            studentNumber: { found: false, value: null },
-            graduationYear: { found: false, value: null },
-            schoolName: { found: false, value: null },
-            schoolYear: { found: false, value: null },
-            gradeLevel: { found: false, value: null },
-            organization: { found: false, value: null },
-            totalHoursVolunteered: { found: false, value: null },
-          },
-          entries: [],
-          warnings: [],
-          errors: ["The document could not be read. Please upload a clearer scan or text-based PDF."],
-        };
+
+      if (text && text.trim().length >= 50) {
+        // Text-based PDF — analyze as text
+        return await analyzeWithLLM(text, false);
       }
-      return await analyzeWithLLM(text, false);
+
+      // Scanned PDF — little or no extractable text. Convert to image and use vision model.
+      const imagePath = await convertScannedPdfToImage(filePath);
+      if (imagePath) {
+        try {
+          const buffer = await fs.readFile(imagePath);
+          const base64 = buffer.toString("base64");
+          const result = await analyzeWithLLM(base64, true);
+          return result;
+        } finally {
+          fs.unlink(imagePath).catch(() => {});
+        }
+      }
+
+      // pdftoppm failed too — give a clear error
+      return {
+        status: "failed",
+        message: "The document could not be read. Please upload a clearer scan, image, or text-based PDF.",
+        isCorrectTemplate: false,
+        isLegible: false,
+        fields: EMPTY_FIELDS,
+        entries: [],
+        warnings: [],
+        errors: ["The document could not be read. Please upload a clearer scan, image, or text-based PDF."],
+      };
     }
   } catch (err) {
     console.error("Scan error:", err);
@@ -230,16 +278,7 @@ export async function scanFile(filePath: string): Promise<ScanResult> {
       message: "An error occurred while scanning the document.",
       isCorrectTemplate: false,
       isLegible: false,
-      fields: {
-        studentName: { found: false, value: null },
-        studentNumber: { found: false, value: null },
-        graduationYear: { found: false, value: null },
-        schoolName: { found: false, value: null },
-        schoolYear: { found: false, value: null },
-        gradeLevel: { found: false, value: null },
-        organization: { found: false, value: null },
-        totalHoursVolunteered: { found: false, value: null },
-      },
+      fields: EMPTY_FIELDS,
       entries: [],
       warnings: [],
       errors: ["An error occurred while scanning the document."],
