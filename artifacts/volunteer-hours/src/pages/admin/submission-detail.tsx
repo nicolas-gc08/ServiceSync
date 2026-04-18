@@ -1,16 +1,18 @@
 import { useState, useEffect } from "react";
-import { useParams, useLocation } from "wouter";
+import { useParams, useLocation, useSearch } from "wouter";
 import { format } from "date-fns";
-import { Loader2, ArrowLeft, FileCheck, Check, X, Save, AlertCircle, AlertTriangle, CheckCircle2, ScanLine, Trash2, RotateCcw } from "lucide-react";
+import { Loader2, ArrowLeft, FileCheck, Check, X, Save, AlertCircle, AlertTriangle, CheckCircle2, ScanLine, Trash2, RotateCcw, ChevronLeft, ChevronRight } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { 
-  useGetSubmission, 
+  useGetSubmission,
+  useListSubmissions,
   useUpdateSubmission,
   useDeleteSubmission,
   getGetSubmissionQueryKey,
   getGetSubmissionStatsQueryKey,
   getListSubmissionsQueryKey,
-  SubmissionUpdateStatus
+  SubmissionUpdateStatus,
+  ListSubmissionsStatus,
 } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
@@ -227,7 +229,30 @@ export default function SubmissionDetail() {
   const queryClient = useQueryClient();
   
   const numericId = parseInt(id || "0", 10);
-  
+
+  // Parse filter state passed as query params from the dashboard
+  const searchString = useSearch();
+  const searchParams = new URLSearchParams(searchString);
+  const filterStatus = (searchParams.get("status") as ListSubmissionsStatus) || undefined;
+  const filterGraduationYear = searchParams.get("graduationYear") ? Number(searchParams.get("graduationYear")) : undefined;
+  const filterSearch = searchParams.get("search") || undefined;
+
+  // Load the same filtered list to power prev/next navigation
+  const { data: navList } = useListSubmissions({
+    status: filterStatus,
+    graduationYear: filterGraduationYear,
+    search: filterSearch,
+  });
+
+  const navIndex = navList?.findIndex((s) => s.id === numericId) ?? -1;
+  const prevId = navIndex > 0 ? navList![navIndex - 1].id : null;
+  const nextId = navIndex >= 0 && navIndex < (navList?.length ?? 0) - 1 ? navList![navIndex + 1].id : null;
+  const navTotal = navList?.length ?? 0;
+
+  function navigateTo(targetId: number) {
+    setLocation(`/admin/submissions/${targetId}${searchString ? `?${searchString}` : ""}`);
+  }
+
   const { data: submission, isLoading, isError } = useGetSubmission(numericId, {
     query: {
       enabled: !!numericId,
@@ -241,15 +266,15 @@ export default function SubmissionDetail() {
   const deleteSubmission = useDeleteSubmission();
   const [notes, setNotes] = useState("");
   const [status, setStatus] = useState<SubmissionUpdateStatus>("pending");
-  const [initialized, setInitialized] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [imageRotation, setImageRotation] = useState(0);
 
+  // Re-initialize form fields and reset rotation whenever the submission changes
   useEffect(() => {
-    if (submission && !initialized) {
+    if (submission) {
       setNotes(submission.notes || "");
       setStatus(submission.status as SubmissionUpdateStatus);
-      setInitialized(true);
+      setImageRotation(0);
     }
   }, [submission?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -343,11 +368,38 @@ export default function SubmissionDetail() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-4">
-        <Button variant="ghost" size="icon" onClick={() => setLocation("/admin")}>
+      <div className="flex items-center gap-3 flex-wrap">
+        <Button variant="ghost" size="icon" onClick={() => setLocation("/admin")} title="Back to dashboard">
           <ArrowLeft className="h-5 w-5" />
         </Button>
         <h1 className="text-2xl font-bold">Review Submission</h1>
+
+        {navTotal > 0 && (
+          <div className="flex items-center gap-1 ml-1">
+            <Button
+              variant="ghost"
+              size="icon"
+              disabled={prevId === null}
+              onClick={() => prevId !== null && navigateTo(prevId)}
+              title="Previous submission"
+            >
+              <ChevronLeft className="h-5 w-5" />
+            </Button>
+            <span className="text-sm text-muted-foreground tabular-nums min-w-[4rem] text-center">
+              {navIndex >= 0 ? `${navIndex + 1} / ${navTotal}` : `— / ${navTotal}`}
+            </span>
+            <Button
+              variant="ghost"
+              size="icon"
+              disabled={nextId === null}
+              onClick={() => nextId !== null && navigateTo(nextId)}
+              title="Next submission"
+            >
+              <ChevronRight className="h-5 w-5" />
+            </Button>
+          </div>
+        )}
+
         <div className="ml-auto flex gap-2">
           <Button
             variant="outline"
@@ -378,8 +430,8 @@ export default function SubmissionDetail() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-        <div className="space-y-6 lg:col-span-2">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="space-y-6 lg:col-span-1">
           <Card>
             <CardHeader>
               <CardTitle className="text-lg">Student Information</CardTitle>
@@ -496,7 +548,7 @@ export default function SubmissionDetail() {
           </Card>
         </div>
 
-        <div className="lg:col-span-3">
+        <div className="lg:col-span-2">
           {(() => {
             const isImage = /\.(jpg|jpeg|png|webp|gif)$/i.test(submission.fileName);
             return (

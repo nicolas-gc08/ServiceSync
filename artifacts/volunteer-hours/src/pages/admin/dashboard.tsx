@@ -161,7 +161,14 @@ export default function AdminDashboard() {
                     <TableRow
                       key={sub.id}
                       className="cursor-pointer hover:bg-muted/50 transition-colors"
-                      onClick={() => setLocation(`/admin/submissions/${sub.id}`)}
+                      onClick={() => {
+                        const params = new URLSearchParams();
+                        if (status !== "all") params.set("status", status);
+                        if (graduationYear !== "all") params.set("graduationYear", graduationYear);
+                        if (search.length > 2) params.set("search", search);
+                        const qs = params.toString();
+                        setLocation(`/admin/submissions/${sub.id}${qs ? `?${qs}` : ""}`);
+                      }}
                     >
                       <TableCell className="font-medium">{sub.lastName}, {sub.firstName}</TableCell>
                       <TableCell className="text-muted-foreground">{sub.studentId}</TableCell>
