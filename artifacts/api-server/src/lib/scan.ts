@@ -149,20 +149,20 @@ async function convertScannedPdfToImage(pdfPath: string): Promise<string | null>
   const prefix = path.join(tmpDir, `scan_${Date.now()}`);
   try {
     await execFileAsync("pdftoppm", [
-      "-png",
+      "-jpeg",
       "-f", "1",
       "-l", "1",
-      "-r", "300",
+      "-r", "200",
       pdfPath,
       prefix,
     ]);
-    const candidate = `${prefix}-1.png`;
+    const candidate = `${prefix}-1.jpg`;
     try {
       await fs.access(candidate);
       return candidate;
     } catch {
       const files = await fs.readdir(tmpDir);
-      const match = files.find((f) => f.startsWith(path.basename(prefix)) && f.endsWith(".png"));
+      const match = files.find((f) => f.startsWith(path.basename(prefix)) && (f.endsWith(".jpg") || f.endsWith(".jpeg")));
       return match ? path.join(tmpDir, match) : null;
     }
   } catch {
@@ -170,7 +170,7 @@ async function convertScannedPdfToImage(pdfPath: string): Promise<string | null>
   }
 }
 
-async function analyzeWithLLM(content: string, isImage: boolean): Promise<ScanResult> {
+async function analyzeWithLLM(content: string, isImage: boolean, mimeType = "image/jpeg"): Promise<ScanResult> {
   let messages: OpenAI.Chat.ChatCompletionMessageParam[];
 
   if (isImage) {
@@ -186,7 +186,7 @@ async function analyzeWithLLM(content: string, isImage: boolean): Promise<ScanRe
           },
           {
             type: "image_url",
-            image_url: { url: `data:image/png;base64,${base64}` },
+            image_url: { url: `data:${mimeType};base64,${base64}` },
           },
         ],
       },
@@ -203,7 +203,7 @@ async function analyzeWithLLM(content: string, isImage: boolean): Promise<ScanRe
 
   const response = await openai.chat.completions.create({
     model: "gpt-5-mini",
-    max_completion_tokens: 8192,
+    max_completion_tokens: 2048,
     messages,
   });
 
@@ -247,9 +247,14 @@ export async function scanFile(filePath: string): Promise<ScanResult> {
 
   try {
     if (isImage) {
+      const mimeMap: Record<string, string> = {
+        ".jpg": "image/jpeg", ".jpeg": "image/jpeg",
+        ".png": "image/png", ".gif": "image/gif", ".webp": "image/webp",
+      };
+      const mimeType = mimeMap[ext] ?? "image/jpeg";
       const buffer = await fs.readFile(filePath);
       const base64 = buffer.toString("base64");
-      return await analyzeWithLLM(base64, true);
+      return await analyzeWithLLM(base64, true, mimeType);
     } else {
       // For PDFs: always try image conversion first — the vision model reads
       // handwriting and scanned forms far more accurately than text extraction,
@@ -259,7 +264,7 @@ export async function scanFile(filePath: string): Promise<ScanResult> {
         try {
           const buffer = await fs.readFile(imagePath);
           const base64 = buffer.toString("base64");
-          return await analyzeWithLLM(base64, true);
+          return await analyzeWithLLM(base64, true, "image/jpeg");
         } finally {
           fs.unlink(imagePath).catch(() => {});
         }
