@@ -518,7 +518,7 @@ export default function SubmissionForm() {
                     <FormItem>
                       <FormLabel>Student ID</FormLabel>
                       <FormControl>
-                        <Input placeholder="0000000000" maxLength={10} inputMode="numeric" {...field} />
+                        <Input placeholder="0600000000" maxLength={10} inputMode="numeric" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
