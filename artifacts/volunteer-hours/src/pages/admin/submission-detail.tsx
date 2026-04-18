@@ -132,15 +132,19 @@ function ScanPanel({ scan }: { scan: ScanData }) {
           <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide">
             Log Entries ({scan.entries.length})
           </p>
-          <div className="space-y-1 max-h-32 overflow-y-auto">
+          <div className="space-y-1.5 max-h-64 overflow-y-auto">
             {scan.entries.map((entry, i) => (
-              <div key={i} className="text-xs bg-muted/50 rounded px-2 py-1 flex items-center justify-between gap-2">
-                <span className="text-muted-foreground shrink-0">{entry.date ?? "—"}</span>
-                <span className="flex-1 truncate">{entry.activity ?? "—"}</span>
-                <span className="font-medium shrink-0">{entry.hours ?? "—"}h</span>
-                <span className={`shrink-0 ${entry.hasSignature ? "text-green-600" : "text-red-400"}`}>
-                  {entry.hasSignature ? "Signed" : "No sig"}
-                </span>
+              <div key={i} className="text-xs bg-muted/50 rounded px-2 py-1.5 space-y-0.5">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-muted-foreground">{entry.date ?? "—"}</span>
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium">{entry.hours ?? "—"}h</span>
+                    <span className={entry.hasSignature ? "text-green-600" : "text-red-400"}>
+                      {entry.hasSignature ? "Signed" : "No sig"}
+                    </span>
+                  </div>
+                </div>
+                <div className="text-foreground/80 break-words whitespace-normal">{entry.activity ?? "—"}</div>
               </div>
             ))}
           </div>
@@ -292,8 +296,8 @@ export default function SubmissionDetail() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-        <div className="space-y-6">
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+        <div className="space-y-6 lg:col-span-2">
           <Card>
             <CardHeader>
               <CardTitle className="text-lg">Student Information</CardTitle>
