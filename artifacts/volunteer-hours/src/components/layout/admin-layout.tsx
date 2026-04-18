@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { useLocation } from "wouter";
-import { Loader2, LogOut, ShieldCheck } from "lucide-react";
+import { Loader2, LogOut } from "lucide-react";
 import { useGetAuthStatus, useAdminLogout, getGetAuthStatusQueryKey } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -40,7 +40,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       <header className="sticky top-0 z-10 w-full border-b bg-white">
         <div className="container flex h-16 items-center px-4 mx-auto max-w-6xl justify-between">
           <div className="flex items-center gap-2 font-semibold text-primary cursor-pointer" onClick={() => setLocation("/admin")}>
-            <ShieldCheck className="h-6 w-6" />
+            <img src="/logo.png" alt="ServiceSync" className="h-6 w-6 object-contain" />
             <span>ServiceSync</span>
           </div>
           <div className="flex items-center gap-4">
