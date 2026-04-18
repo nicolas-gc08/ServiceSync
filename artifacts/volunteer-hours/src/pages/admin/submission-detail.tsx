@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useParams, useLocation } from "wouter";
 import { format } from "date-fns";
-import { Loader2, ArrowLeft, FileCheck, Check, X, Save, AlertCircle, AlertTriangle, CheckCircle2, ScanLine, Trash2 } from "lucide-react";
+import { Loader2, ArrowLeft, FileCheck, Check, X, Save, AlertCircle, AlertTriangle, CheckCircle2, ScanLine, Trash2, RotateCw } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { 
   useGetSubmission, 
@@ -175,6 +175,7 @@ export default function SubmissionDetail() {
   const [status, setStatus] = useState<SubmissionUpdateStatus>("pending");
   const [isEditing, setIsEditing] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [imageRotation, setImageRotation] = useState<0 | 90 | 180 | 270>(0);
 
   // Initialize state when submission data loads
   if (submission && !isEditing) {
@@ -410,56 +411,77 @@ export default function SubmissionDetail() {
         </div>
 
         <div className="lg:col-span-3">
-          <Card className="h-[calc(100vh-12rem)] flex flex-col overflow-hidden">
-            <CardHeader className="py-3 px-4 border-b bg-muted/30">
-              <CardTitle className="text-sm font-medium flex items-center justify-between">
-                <span>Document Viewer</span>
-                <div className="flex items-center gap-3">
-                  <span className="text-xs font-normal text-muted-foreground max-w-[200px] truncate" title={submission.fileName}>
-                    {submission.fileName}
-                  </span>
-                  <a
-                    href={submission.fileUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-xs font-normal text-primary hover:underline flex items-center gap-1"
-                  >
-                    Open in new tab ↗
-                  </a>
-                </div>
-              </CardTitle>
-            </CardHeader>
-            <div className="flex-1 p-0 relative bg-muted/10">
-              {submission.fileUrl.match(/\.(jpg|jpeg|png|webp|gif)$/i) ? (
-                <div className="absolute inset-0 flex items-center justify-center p-4">
-                  <img
-                    src={submission.fileUrl}
-                    alt="Proof of hours"
-                    className="max-w-full max-h-full object-contain rounded-md shadow-sm border"
-                  />
-                </div>
-              ) : (
-                <object
-                  data={submission.fileUrl}
-                  type="application/pdf"
-                  className="w-full h-full"
-                  title="Document Preview"
-                >
-                  <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 text-muted-foreground">
-                    <p className="text-sm">PDF preview is not available in this browser.</p>
-                    <a
-                      href={submission.fileUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-sm text-primary font-medium hover:underline"
+          {(() => {
+            const isImage = /\.(jpg|jpeg|png|webp|gif)$/i.test(submission.fileName);
+            return (
+              <Card className="h-[calc(100vh-12rem)] flex flex-col overflow-hidden">
+                <CardHeader className="py-3 px-4 border-b bg-muted/30">
+                  <CardTitle className="text-sm font-medium flex items-center justify-between">
+                    <span>Document Viewer</span>
+                    <div className="flex items-center gap-3">
+                      <span className="text-xs font-normal text-muted-foreground max-w-[200px] truncate" title={submission.fileName}>
+                        {submission.fileName}
+                      </span>
+                      {isImage && (
+                        <button
+                          onClick={() => setImageRotation(r => ((r + 90) % 360) as 0 | 90 | 180 | 270)}
+                          className="flex items-center gap-1 text-xs font-normal text-muted-foreground hover:text-foreground transition-colors"
+                          title="Rotate 90°"
+                        >
+                          <RotateCw className="h-3.5 w-3.5" />
+                          Rotate
+                        </button>
+                      )}
+                      <a
+                        href={submission.fileUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-xs font-normal text-primary hover:underline flex items-center gap-1"
+                      >
+                        Open in new tab ↗
+                      </a>
+                    </div>
+                  </CardTitle>
+                </CardHeader>
+                <div className="flex-1 p-0 relative bg-muted/10 overflow-hidden">
+                  {isImage ? (
+                    <div className="absolute inset-0 flex items-center justify-center p-4">
+                      <img
+                        src={submission.fileUrl}
+                        alt="Proof of hours"
+                        className="object-contain rounded-md shadow-sm border"
+                        style={{
+                          transform: `rotate(${imageRotation}deg)`,
+                          transition: "transform 0.3s ease",
+                          maxWidth: imageRotation === 90 || imageRotation === 270 ? "100%" : "100%",
+                          maxHeight: imageRotation === 90 || imageRotation === 270 ? "80vw" : "100%",
+                        }}
+                      />
+                    </div>
+                  ) : (
+                    <object
+                      data={submission.fileUrl}
+                      type="application/pdf"
+                      className="w-full h-full"
+                      title="Document Preview"
                     >
-                      Click here to open the file ↗
-                    </a>
-                  </div>
-                </object>
-              )}
-            </div>
-          </Card>
+                      <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 text-muted-foreground">
+                        <p className="text-sm">PDF preview is not available in this browser.</p>
+                        <a
+                          href={submission.fileUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-sm text-primary font-medium hover:underline"
+                        >
+                          Click here to open the file ↗
+                        </a>
+                      </div>
+                    </object>
+                  )}
+                </div>
+              </Card>
+            );
+          })()}
         </div>
       </div>
 

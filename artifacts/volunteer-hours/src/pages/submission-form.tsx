@@ -29,7 +29,7 @@ const ACCEPTED_FILE_TYPES = ["application/pdf", "image/jpeg", "image/png", "imag
 const formSchema = z.object({
   firstName: z.string().min(2, "First name is required"),
   lastName: z.string().min(2, "Last name is required"),
-  studentId: z.string().min(4, "Student ID is required"),
+  studentId: z.string().regex(/^\d{10}$/, "Student ID must be exactly 10 digits"),
   graduationYear: z.coerce.number().min(2024).max(2030),
   email: z.string().email("Invalid email address").optional().or(z.literal("")),
 });
@@ -518,7 +518,7 @@ export default function SubmissionForm() {
                     <FormItem>
                       <FormLabel>Student ID</FormLabel>
                       <FormControl>
-                        <Input placeholder="123456" {...field} />
+                        <Input placeholder="0000000000" maxLength={10} inputMode="numeric" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
