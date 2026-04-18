@@ -5,6 +5,7 @@ import path from "path";
 import { execFile } from "child_process";
 import { promisify } from "util";
 import os from "os";
+import { randomBytes } from "crypto";
 
 const execFileAsync = promisify(execFile);
 const _require = createRequire(import.meta.url);
@@ -146,7 +147,7 @@ function isTextUsable(text: string): boolean {
 
 async function convertScannedPdfToImage(pdfPath: string): Promise<string | null> {
   const tmpDir = os.tmpdir();
-  const prefix = path.join(tmpDir, `scan_${Date.now()}`);
+  const prefix = path.join(tmpDir, `scan_${randomBytes(12).toString("hex")}`);
   try {
     await execFileAsync("pdftoppm", [
       "-jpeg",
