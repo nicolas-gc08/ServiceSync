@@ -85,57 +85,129 @@ const FIELD_LABELS: Record<keyof ScanResult["fields"], string> = {
   totalHoursVolunteered: "Total Hours Volunteered",
 };
 
+const BLOCKING_FIELDS: Array<[keyof ScanResult["fields"], string]> = [
+  ["studentName", "Student name"],
+  ["studentNumber", "Student number"],
+  ["graduationYear", "Graduation year"],
+  ["schoolName", "School name"],
+  ["schoolYear", "School year"],
+  ["gradeLevel", "Grade level"],
+  ["organization", "Organization name"],
+  ["totalHoursVolunteered", "Total hours volunteered"],
+];
+
+function computeBlockingErrors(scan: ScanResult): string[] {
+  if (!scan.isCorrectTemplate) {
+    return ["This does not appear to be the correct volunteer log template. Please upload the Broward County Volunteer Hour Log Sheet."];
+  }
+  if (!scan.isLegible) {
+    return ["The document is not legible. Please upload a clearer scan or PDF."];
+  }
+
+  const errors: string[] = [];
+
+  for (const [field, label] of BLOCKING_FIELDS) {
+    if (!scan.fields[field]?.found) {
+      errors.push(`${label} is missing or not legible`);
+    }
+  }
+
+  const missingDateCount = scan.entries.filter((e) => !e.date).length;
+  if (missingDateCount > 0) {
+    errors.push(
+      `Date is missing for ${missingDateCount} log entr${missingDateCount === 1 ? "y" : "ies"}`
+    );
+  }
+
+  return errors;
+}
+
+function computeTimingWarnings(scan: ScanResult): string[] {
+  if (!scan.isCorrectTemplate || !scan.isLegible) return [];
+  const warnings: string[] = [];
+  scan.entries.forEach((entry, i) => {
+    const missing: string[] = [];
+    if (!entry.timeIn) missing.push("Time In");
+    if (!entry.timeOut) missing.push("Time Out");
+    if (missing.length > 0) {
+      warnings.push(
+        `Entry ${i + 1}: ${missing.join(" and ")} ${missing.length === 1 ? "is" : "are"} missing`
+      );
+    }
+  });
+  return warnings;
+}
+
 function ScanResultPanel({ scan }: { scan: ScanResult }) {
-  const isFailed = scan.status === "failed" || scan.status === "error";
-  const isWarning = scan.status === "warnings";
-  const isPassed = scan.status === "passed";
+  const blockingErrors = computeBlockingErrors(scan);
+  const timingWarnings = computeTimingWarnings(scan);
+  const hasBlockingErrors = blockingErrors.length > 0;
+  const hasTimingWarnings = timingWarnings.length > 0;
 
-  const panelClass = isFailed
-    ? "border-red-200 bg-red-50"
-    : isWarning
-      ? "border-amber-200 bg-amber-50"
-      : "border-green-200 bg-green-50";
+  const overallStatus = hasBlockingErrors ? "failed" : hasTimingWarnings ? "warnings" : "passed";
 
-  const iconClass = isFailed
-    ? "text-red-600"
-    : isWarning
-      ? "text-amber-600"
-      : "text-green-600";
+  const panelClass =
+    overallStatus === "failed"
+      ? "border-red-200 bg-red-50"
+      : overallStatus === "warnings"
+        ? "border-amber-200 bg-amber-50"
+        : "border-green-200 bg-green-50";
 
-  const Icon = isFailed ? AlertCircle : isWarning ? AlertTriangle : CheckCircle2;
+  const iconClass =
+    overallStatus === "failed"
+      ? "text-red-600"
+      : overallStatus === "warnings"
+        ? "text-amber-600"
+        : "text-green-600";
+
+  const Icon =
+    overallStatus === "failed" ? AlertCircle : overallStatus === "warnings" ? AlertTriangle : CheckCircle2;
+
+  const headingText =
+    overallStatus === "failed"
+      ? "Document cannot be submitted"
+      : overallStatus === "warnings"
+        ? "Document has warnings"
+        : "Document scan passed";
 
   return (
     <div className={`rounded-lg border p-4 space-y-4 ${panelClass}`}>
       <div className={`flex items-start gap-3 ${iconClass}`}>
         <Icon className="h-5 w-5 mt-0.5 shrink-0" />
         <div>
-          <p className="font-medium text-sm">
-            {isFailed ? "Document Issues Found" : isWarning ? "Document Warnings" : "Document Scan Passed"}
-          </p>
-          <p className="text-sm text-muted-foreground mt-0.5">{scan.message}</p>
+          <p className="font-medium text-sm">{headingText}</p>
+          {!hasBlockingErrors && !hasTimingWarnings && (
+            <p className="text-sm text-muted-foreground mt-0.5">All required fields detected.</p>
+          )}
         </div>
       </div>
 
-      {scan.errors.length > 0 && (
-        <ul className="space-y-1">
-          {scan.errors.map((e, i) => (
-            <li key={i} className="flex items-start gap-2 text-sm text-red-700">
-              <X className="h-3.5 w-3.5 mt-0.5 shrink-0" />
-              {e}
-            </li>
-          ))}
-        </ul>
+      {blockingErrors.length > 0 && (
+        <div className="space-y-1">
+          <p className="text-xs font-semibold text-red-700 uppercase tracking-wide">Must fix before submitting</p>
+          <ul className="space-y-1">
+            {blockingErrors.map((e, i) => (
+              <li key={i} className="flex items-start gap-2 text-sm text-red-700">
+                <X className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+                {e}
+              </li>
+            ))}
+          </ul>
+        </div>
       )}
 
-      {scan.warnings.length > 0 && (
-        <ul className="space-y-1">
-          {scan.warnings.map((w, i) => (
-            <li key={i} className="flex items-start gap-2 text-sm text-amber-700">
-              <AlertTriangle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
-              {w}
-            </li>
-          ))}
-        </ul>
+      {timingWarnings.length > 0 && (
+        <div className="space-y-1">
+          <p className="text-xs font-semibold text-amber-700 uppercase tracking-wide">Warnings (submission allowed)</p>
+          <ul className="space-y-1">
+            {timingWarnings.map((w, i) => (
+              <li key={i} className="flex items-start gap-2 text-sm text-amber-700">
+                <AlertTriangle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+                {w}
+              </li>
+            ))}
+          </ul>
+        </div>
       )}
 
       {scan.isCorrectTemplate && scan.isLegible && (
@@ -166,7 +238,9 @@ function ScanResultPanel({ scan }: { scan: ScanResult }) {
           <div className="space-y-1">
             {scan.entries.map((entry, i) => (
               <div key={i} className="flex items-center justify-between text-xs bg-white/60 rounded px-2 py-1">
-                <span className="text-muted-foreground">{entry.date ?? "No date"}</span>
+                <span className={entry.date ? "text-muted-foreground" : "text-red-500 font-medium"}>
+                  {entry.date ?? "No date"}
+                </span>
                 <span className="max-w-[120px] truncate">{entry.activity ?? "No activity"}</span>
                 <span className="font-medium">{entry.hours ?? "—"} hrs</span>
                 <span className={entry.hasSignature ? "text-green-600" : "text-red-500"}>
@@ -266,7 +340,8 @@ export default function SubmissionForm() {
       return;
     }
 
-    if (uploadedFile.scanData?.status === "failed") {
+    const blockingErrors = computeBlockingErrors(uploadedFile.scanData);
+    if (blockingErrors.length > 0) {
       toast({
         title: "Document issues",
         description: "Please fix the document issues before submitting.",
@@ -351,7 +426,8 @@ export default function SubmissionForm() {
     );
   }
 
-  const scanFailed = uploadedFile?.scanData?.status === "failed" || uploadedFile?.scanData?.status === "error";
+  const blockingErrors = uploadedFile?.scanData ? computeBlockingErrors(uploadedFile.scanData) : [];
+  const scanFailed = blockingErrors.length > 0;
   const isPending = isSubmitting;
 
   return (
