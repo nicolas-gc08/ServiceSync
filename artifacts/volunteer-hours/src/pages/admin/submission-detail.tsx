@@ -119,7 +119,7 @@ function ScanPanel({ scan }: { scan: ScanData }) {
     if (missingSignature > 0) minorIssues.push(`Signature missing on ${missingSignature} entr${missingSignature === 1 ? "y" : "ies"}`);
 
     scan.warnings.forEach(w => minorIssues.push(w));
-    scan.errors.forEach(e => minorIssues.push(e));
+    scan.errors.forEach(e => criticalIssues.push(e));
   }
 
   const hasCritical = criticalIssues.length > 0;
@@ -228,10 +228,12 @@ export default function SubmissionDetail() {
   
   const numericId = parseInt(id || "0", 10);
   
-  const { data: submission, isLoading } = useGetSubmission(numericId, {
+  const { data: submission, isLoading, isError } = useGetSubmission(numericId, {
     query: {
       enabled: !!numericId,
-      queryKey: getGetSubmissionQueryKey(numericId)
+      queryKey: getGetSubmissionQueryKey(numericId),
+      refetchInterval: (query) =>
+        query.state.data?.scanStatus === "pending" ? 3000 : false,
     }
   });
 
@@ -319,10 +321,22 @@ export default function SubmissionDetail() {
     }
   };
 
-  if (isLoading || !submission) {
+  if (isLoading) {
     return (
       <div className="flex items-center justify-center h-[50vh]">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (isError || !submission) {
+    return (
+      <div className="flex flex-col items-center justify-center h-[50vh] gap-3 text-muted-foreground">
+        <p className="text-base font-medium">Submission not found.</p>
+        <Button variant="outline" onClick={() => setLocation("/admin")}>
+          <ArrowLeft className="h-4 w-4 mr-2" />
+          Back to dashboard
+        </Button>
       </div>
     );
   }

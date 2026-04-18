@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -26,10 +26,11 @@ export default function AdminLogin() {
   const adminLogin = useAdminLogin();
   const { data: authStatus, isLoading: isLoadingAuth } = useGetAuthStatus();
 
-  // Redirect if already authenticated
-  if (authStatus?.authenticated && !isLoadingAuth) {
-    setLocation("/admin");
-  }
+  useEffect(() => {
+    if (authStatus?.authenticated && !isLoadingAuth) {
+      setLocation("/admin");
+    }
+  }, [authStatus?.authenticated, isLoadingAuth]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
