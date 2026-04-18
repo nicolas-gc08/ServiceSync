@@ -209,7 +209,7 @@ async function analyzeWithLLM(content: string, isImage: boolean, mimeType = "ima
 
   const response = await scanLimit(() =>
     openai.chat.completions.create(
-      { model: "gpt-5-mini", max_completion_tokens: 2048, messages },
+      { model: "gpt-5-mini", max_completion_tokens: 4096, messages },
       { signal: AbortSignal.timeout(SCAN_TIMEOUT_MS) },
     )
   );
