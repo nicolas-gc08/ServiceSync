@@ -22,8 +22,8 @@ const formSchema = z.object({
   graduationYear: z.coerce.number().min(2024).max(2030),
   email: z.string().email("Invalid email address").optional().or(z.literal("")),
   file: z.any()
-    .refine((file) => file instanceof File, "File is required")
-    .refine((file) => file?.size <= MAX_FILE_SIZE, "Max file size is 5MB.")
+    .refine((file) => !!file, "File is required")
+    .refine((file) => !file || file.size <= MAX_FILE_SIZE, "Max file size is 5MB.")
     .refine(
       (file) => ACCEPTED_FILE_TYPES.includes(file?.type),
       "Only .pdf, .jpg, .jpeg, .png and .webp formats are supported."
