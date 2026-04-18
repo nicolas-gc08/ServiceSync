@@ -8,7 +8,9 @@ import os from "os";
 
 const execFileAsync = promisify(execFile);
 const _require = createRequire(import.meta.url);
-const pdfParse: (buffer: Buffer) => Promise<{ text: string }> = _require("pdf-parse");
+const _pdfParseModule = _require("pdf-parse");
+const pdfParse: (buffer: Buffer) => Promise<{ text: string }> =
+  typeof _pdfParseModule === "function" ? _pdfParseModule : (_pdfParseModule.default ?? _pdfParseModule);
 
 const openai = new OpenAI({
   baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
@@ -131,6 +133,16 @@ async function extractPdfText(filePath: string): Promise<string> {
   return data.text;
 }
 
+function isTextUsable(text: string): boolean {
+  if (!text || text.trim().length < 50) return false;
+  // Count characters that look like OCR garbage: non-ASCII, curly braces, pipes, slashes mixed in words
+  const total = text.length;
+  const junk = (text.match(/[^\x00-\x7E]|[{}|\\~`^<>]/g) ?? []).length;
+  const junkRatio = junk / total;
+  // If more than 5% junk characters, the text is too garbled to trust
+  return junkRatio < 0.05;
+}
+
 async function convertScannedPdfToImage(pdfPath: string): Promise<string | null> {
   const tmpDir = os.tmpdir();
   const prefix = path.join(tmpDir, `scan_${Date.now()}`);
@@ -239,14 +251,19 @@ export async function scanFile(filePath: string): Promise<ScanResult> {
       return await analyzeWithLLM(base64, true);
     } else {
       // Try text extraction first (works for digital/text-based PDFs)
-      const text = await extractPdfText(filePath);
+      let text = "";
+      try {
+        text = await extractPdfText(filePath);
+      } catch {
+        // pdf-parse failed — fall through to image conversion
+      }
 
-      if (text && text.trim().length >= 50) {
-        // Text-based PDF — analyze as text
+      if (isTextUsable(text)) {
+        // Clean text-based PDF — analyze as text
         return await analyzeWithLLM(text, false);
       }
 
-      // Scanned PDF — little or no extractable text. Convert to image and use vision model.
+      // Scanned PDF or garbled text — convert to image and use vision model.
       const imagePath = await convertScannedPdfToImage(filePath);
       if (imagePath) {
         try {
