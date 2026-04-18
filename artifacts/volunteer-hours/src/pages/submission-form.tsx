@@ -8,6 +8,7 @@ import {
   Upload,
   Loader2,
   FileText,
+  X,
 } from "lucide-react";
 import { useCreateSubmission } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
