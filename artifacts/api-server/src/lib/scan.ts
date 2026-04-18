@@ -62,6 +62,7 @@ You analyze Broward County Public Schools "Student Volunteer Service Program - V
 
 IMPORTANT: Documents may be scanned, photographed, or digitally created. Accept all of the following as valid and legible:
 - Documents rotated at ANY angle including 90, 180, or 270 degrees — phone photos are often taken sideways or upside down. Read rotated text by mentally rotating the image.
+- Documents photographed from an angle or off to the side, causing perspective distortion or a trapezoidal shape — this is common when students photograph forms on a desk without holding the camera directly overhead.
 - Documents with shadows, uneven lighting, or minor glare
 - Handwritten entries on a printed template
 - Scanned or photographed copies with mild blurriness
