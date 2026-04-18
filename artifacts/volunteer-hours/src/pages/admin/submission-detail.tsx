@@ -339,7 +339,7 @@ export default function SubmissionDetail() {
               <CardTitle className="text-lg">Review Details</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              {submission.scanData && (() => {
+              {submission.scanData ? (() => {
                 try {
                   const scan: ScanData = typeof submission.scanData === "string"
                     ? JSON.parse(submission.scanData)
@@ -350,9 +350,14 @@ export default function SubmissionDetail() {
                     </div>
                   );
                 } catch { return null; }
-              })()}
+              })() : submission.scanStatus === "pending" ? (
+                <div className="border rounded-lg p-3 bg-muted/20 flex items-center gap-2 text-sm text-muted-foreground">
+                  <Loader2 className="h-4 w-4 animate-spin shrink-0" />
+                  <span>AI document scan in progress&hellip;</span>
+                </div>
+              ) : null}
 
-              {submission.extractedOrg && !submission.scanData && (
+              {submission.extractedOrg && !submission.scanData && submission.scanStatus !== "pending" && (
                 <div className="bg-primary/5 p-3 rounded-md border border-primary/10">
                   <div className="flex items-center gap-2 text-primary font-medium mb-1">
                     <FileCheck className="h-4 w-4" />

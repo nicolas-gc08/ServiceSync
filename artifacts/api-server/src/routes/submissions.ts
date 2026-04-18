@@ -1,6 +1,7 @@
 import { Router, type IRouter } from "express";
 import multer from "multer";
 import path from "path";
+import os from "os";
 import { randomUUID } from "crypto";
 import { db, submissionsTable } from "@workspace/db";
 import { eq, ilike, or, and, sql } from "drizzle-orm";
@@ -63,6 +64,37 @@ function generateSubmissionId(): string {
   return `VH-${year}${month}${day}-${rand}`;
 }
 
+async function runBackgroundScan(submissionId: number, fileUrl: string): Promise<void> {
+  const objectName = decodeURIComponent(fileUrl.replace("/api/submissions/file/", ""));
+  const ext = path.extname(objectName) || ".tmp";
+  const tmpPath = path.join(os.tmpdir(), `scan_${randomUUID()}${ext}`);
+  try {
+    const { stream } = await streamFileFromStorage(objectName);
+    await new Promise<void>((resolve, reject) => {
+      const writer = fsSync.createWriteStream(tmpPath);
+      stream.pipe(writer);
+      writer.on("finish", resolve);
+      writer.on("error", reject);
+      stream.on("error", reject);
+    });
+    const result = await scanFile(tmpPath);
+    await db
+      .update(submissionsTable)
+      .set({ scanStatus: result.status, scanData: JSON.stringify(result) })
+      .where(eq(submissionsTable.id, submissionId));
+  } catch (err) {
+    console.error("Background scan error for submission", submissionId, ":", err);
+    try {
+      await db
+        .update(submissionsTable)
+        .set({ scanStatus: "error" })
+        .where(eq(submissionsTable.id, submissionId));
+    } catch {}
+  } finally {
+    fsSync.unlink(tmpPath, () => {});
+  }
+}
+
 router.post("/submissions/upload", uploadLimiter, upload.single("file"), async (req, res): Promise<void> => {
   if (!req.file) {
     res.status(400).json({ error: "No file uploaded" });
@@ -70,17 +102,6 @@ router.post("/submissions/upload", uploadLimiter, upload.single("file"), async (
   }
 
   const localPath = path.join(UPLOADS_DIR, req.file.filename);
-  let scanStatus: string = "error";
-  let scanData: string | null = null;
-
-  try {
-    const result = await scanFile(localPath);
-    scanStatus = result.status;
-    scanData = JSON.stringify(result);
-  } catch (err) {
-    console.error("Scan failed:", err);
-  }
-
   let fileUrl: string;
   try {
     const objectName = await uploadFileToStorage(localPath, req.file.originalname);
@@ -93,7 +114,7 @@ router.post("/submissions/upload", uploadLimiter, upload.single("file"), async (
     fsSync.unlink(localPath, () => {});
   }
 
-  res.json({ fileUrl, fileName: req.file.originalname, scanStatus, scanData });
+  res.json({ fileUrl, fileName: req.file.originalname });
 });
 
 router.get("/submissions/file/:objectPath", async (req, res): Promise<void> => {
@@ -193,12 +214,16 @@ router.post("/submissions", async (req, res): Promise<void> => {
       fileUrl: data.fileUrl,
       fileName: data.fileName,
       status: "pending",
-      scanStatus: data.scanStatus ?? null,
-      scanData: data.scanData ?? null,
+      scanStatus: "pending",
+      scanData: null,
     })
     .returning();
 
   res.status(201).json(submission);
+
+  setImmediate(() => {
+    runBackgroundScan(submission.id, submission.fileUrl).catch(() => {});
+  });
 });
 
 router.get("/submissions/:id", requireAdmin, async (req, res): Promise<void> => {

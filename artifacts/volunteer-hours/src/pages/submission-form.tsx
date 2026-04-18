@@ -7,11 +7,7 @@ import {
   CheckCircle2,
   Upload,
   Loader2,
-  AlertCircle,
-  AlertTriangle,
-  Check,
   X,
-  ScanLine,
   FileText,
 } from "lucide-react";
 import { useCreateSubmission } from "@workspace/api-client-react";
@@ -34,225 +30,9 @@ const formSchema = z.object({
   email: z.string().email("Invalid email address").optional().or(z.literal("")),
 });
 
-interface FieldResult {
-  found: boolean;
-  value: string | null;
-}
-
-interface ScanResult {
-  status: "passed" | "warnings" | "failed" | "error";
-  message: string;
-  isCorrectTemplate: boolean;
-  isLegible: boolean;
-  fields: {
-    studentName: FieldResult;
-    studentNumber: FieldResult;
-    graduationYear: FieldResult;
-    schoolName: FieldResult;
-    schoolYear: FieldResult;
-    gradeLevel: FieldResult;
-    organization: FieldResult;
-    totalHoursVolunteered: FieldResult;
-  };
-  entries: Array<{
-    date: string | null;
-    activity: string | null;
-    timeIn: string | null;
-    timeOut: string | null;
-    hours: string | null;
-    contactName: string | null;
-    hasSignature: boolean;
-  }>;
-  warnings: string[];
-  errors: string[];
-}
-
 interface UploadedFile {
   fileUrl: string;
   fileName: string;
-  scanStatus: string;
-  scanData: ScanResult;
-}
-
-const FIELD_LABELS: Record<keyof ScanResult["fields"], string> = {
-  studentName: "Student Name",
-  studentNumber: "Student Number",
-  graduationYear: "Graduation Year",
-  schoolName: "School Name",
-  schoolYear: "School Year",
-  gradeLevel: "Grade Level",
-  organization: "Organization Name",
-  totalHoursVolunteered: "Total Hours Volunteered",
-};
-
-const BLOCKING_FIELDS: Array<[keyof ScanResult["fields"], string]> = [
-  ["studentName", "Student name"],
-  ["studentNumber", "Student number"],
-  ["graduationYear", "Graduation year"],
-  ["schoolName", "School name"],
-  ["schoolYear", "School year"],
-  ["gradeLevel", "Grade level"],
-  ["organization", "Organization name"],
-  ["totalHoursVolunteered", "Total hours volunteered"],
-];
-
-function computeBlockingErrors(scan: ScanResult): string[] {
-  if (!scan.isCorrectTemplate) {
-    return ["This does not appear to be the correct volunteer log template. Please upload the Broward County Volunteer Hour Log Sheet."];
-  }
-  if (!scan.isLegible) {
-    return ["The document is not legible. Please upload a clearer scan or PDF."];
-  }
-
-  const errors: string[] = [];
-
-  for (const [field, label] of BLOCKING_FIELDS) {
-    if (!scan.fields[field]?.found) {
-      errors.push(`${label} is missing or not legible`);
-    }
-  }
-
-  const missingDateCount = scan.entries.filter((e) => !e.date).length;
-  if (missingDateCount > 0) {
-    errors.push(
-      `Date is missing for ${missingDateCount} log entr${missingDateCount === 1 ? "y" : "ies"}`
-    );
-  }
-
-  return errors;
-}
-
-function computeTimingWarnings(scan: ScanResult): string[] {
-  if (!scan.isCorrectTemplate || !scan.isLegible) return [];
-  const warnings: string[] = [];
-  scan.entries.forEach((entry, i) => {
-    const missing: string[] = [];
-    if (!entry.timeIn) missing.push("Time In");
-    if (!entry.timeOut) missing.push("Time Out");
-    if (missing.length > 0) {
-      warnings.push(
-        `Entry ${i + 1}: ${missing.join(" and ")} ${missing.length === 1 ? "is" : "are"} missing`
-      );
-    }
-  });
-  return warnings;
-}
-
-function ScanResultPanel({ scan }: { scan: ScanResult }) {
-  const blockingErrors = computeBlockingErrors(scan);
-  const timingWarnings = computeTimingWarnings(scan);
-  const hasBlockingErrors = blockingErrors.length > 0;
-  const hasTimingWarnings = timingWarnings.length > 0;
-
-  const overallStatus = hasBlockingErrors ? "failed" : hasTimingWarnings ? "warnings" : "passed";
-
-  const panelClass =
-    overallStatus === "failed"
-      ? "border-red-200 bg-red-50"
-      : overallStatus === "warnings"
-        ? "border-amber-200 bg-amber-50"
-        : "border-green-200 bg-green-50";
-
-  const iconClass =
-    overallStatus === "failed"
-      ? "text-red-600"
-      : overallStatus === "warnings"
-        ? "text-amber-600"
-        : "text-green-600";
-
-  const Icon =
-    overallStatus === "failed" ? AlertCircle : overallStatus === "warnings" ? AlertTriangle : CheckCircle2;
-
-  const headingText =
-    overallStatus === "failed"
-      ? "Document cannot be submitted"
-      : overallStatus === "warnings"
-        ? "Document has warnings"
-        : "Document scan passed";
-
-  return (
-    <div className={`rounded-lg border p-4 space-y-4 ${panelClass}`}>
-      <div className={`flex items-start gap-3 ${iconClass}`}>
-        <Icon className="h-5 w-5 mt-0.5 shrink-0" />
-        <div>
-          <p className="font-medium text-sm">{headingText}</p>
-          {!hasBlockingErrors && !hasTimingWarnings && (
-            <p className="text-sm text-muted-foreground mt-0.5">All required fields detected.</p>
-          )}
-        </div>
-      </div>
-
-      {blockingErrors.length > 0 && (
-        <div className="space-y-1">
-          <p className="text-xs font-semibold text-red-700 uppercase tracking-wide">Must fix before submitting</p>
-          <ul className="space-y-1">
-            {blockingErrors.map((e, i) => (
-              <li key={i} className="flex items-start gap-2 text-sm text-red-700">
-                <X className="h-3.5 w-3.5 mt-0.5 shrink-0" />
-                {e}
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-
-      {timingWarnings.length > 0 && (
-        <div className="space-y-1">
-          <p className="text-xs font-semibold text-amber-700 uppercase tracking-wide">Warnings (submission allowed)</p>
-          <ul className="space-y-1">
-            {timingWarnings.map((w, i) => (
-              <li key={i} className="flex items-start gap-2 text-sm text-amber-700">
-                <AlertTriangle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
-                {w}
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-
-      {scan.isCorrectTemplate && scan.isLegible && (
-        <div className="space-y-1.5 pt-1">
-          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Field Detection</p>
-          <div className="grid grid-cols-2 gap-1">
-            {(Object.entries(scan.fields) as [keyof typeof scan.fields, FieldResult][]).map(([key, field]) => (
-              <div key={key} className="flex items-center gap-1.5 text-xs">
-                {field.found ? (
-                  <Check className="h-3 w-3 text-green-600 shrink-0" />
-                ) : (
-                  <X className="h-3 w-3 text-red-500 shrink-0" />
-                )}
-                <span className={field.found ? "text-foreground" : "text-muted-foreground"}>
-                  {FIELD_LABELS[key]}
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {scan.isCorrectTemplate && scan.isLegible && scan.entries.length > 0 && (
-        <div className="space-y-1 pt-1">
-          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-            Log Entries Detected ({scan.entries.length})
-          </p>
-          <div className="space-y-1">
-            {scan.entries.map((entry, i) => (
-              <div key={i} className="flex items-center justify-between text-xs bg-white/60 rounded px-2 py-1">
-                <span className={entry.date ? "text-muted-foreground" : "text-red-500 font-medium"}>
-                  {entry.date ?? "No date"}
-                </span>
-                <span className="max-w-[120px] truncate">{entry.activity ?? "No activity"}</span>
-                <span className="font-medium">{entry.hours ?? "—"} hrs</span>
-                <span className={entry.hasSignature ? "text-green-600" : "text-red-500"}>
-                  {entry.hasSignature ? "Signed" : "No sig"}
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
-  );
 }
 
 export default function SubmissionForm() {
@@ -264,7 +44,7 @@ export default function SubmissionForm() {
 
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isScanning, setIsScanning] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
   const [uploadedFile, setUploadedFile] = useState<UploadedFile | null>(null);
   const [selectedFileName, setSelectedFileName] = useState<string | null>(null);
   const [successData, setSuccessData] = useState<{ id: string; timestamp: Date } | null>(null);
@@ -307,7 +87,7 @@ export default function SubmissionForm() {
 
     setSelectedFileName(file.name);
     setUploadedFile(null);
-    setIsScanning(true);
+    setIsUploading(true);
 
     try {
       const formData = new FormData();
@@ -321,13 +101,7 @@ export default function SubmissionForm() {
       if (!res.ok) throw new Error("Upload failed");
 
       const data = await res.json();
-
-      setUploadedFile({
-        fileUrl: data.fileUrl,
-        fileName: data.fileName,
-        scanStatus: data.scanStatus,
-        scanData: typeof data.scanData === "string" ? JSON.parse(data.scanData) : data.scanData,
-      });
+      setUploadedFile({ fileUrl: data.fileUrl, fileName: data.fileName });
     } catch (err) {
       toast({
         title: "Upload failed",
@@ -336,23 +110,13 @@ export default function SubmissionForm() {
       });
       setSelectedFileName(null);
     } finally {
-      setIsScanning(false);
+      setIsUploading(false);
     }
   }
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     if (!uploadedFile) {
       toast({ title: "No file uploaded", description: "Please select a file first.", variant: "destructive" });
-      return;
-    }
-
-    const blockingErrors = computeBlockingErrors(uploadedFile.scanData);
-    if (blockingErrors.length > 0) {
-      toast({
-        title: "Document issues",
-        description: "Please fix the document issues before submitting.",
-        variant: "destructive",
-      });
       return;
     }
 
@@ -368,10 +132,6 @@ export default function SubmissionForm() {
           email: values.email || null,
           fileUrl: uploadedFile.fileUrl,
           fileName: uploadedFile.fileName,
-          scanStatus: uploadedFile.scanStatus,
-          scanData: typeof uploadedFile.scanData === "object"
-            ? JSON.stringify(uploadedFile.scanData)
-            : uploadedFile.scanData,
         },
       });
 
@@ -432,8 +192,6 @@ export default function SubmissionForm() {
     );
   }
 
-  const blockingErrors = uploadedFile?.scanData ? computeBlockingErrors(uploadedFile.scanData) : [];
-  const scanFailed = blockingErrors.length > 0;
   const isPending = isSubmitting;
 
   return (
@@ -572,15 +330,11 @@ export default function SubmissionForm() {
                 </label>
                 <div
                   className={`relative border-2 border-dashed rounded-lg p-4 transition-colors ${
-                    isScanning
+                    isUploading
                       ? "border-primary/50 bg-primary/5"
-                      : uploadedFile?.scanData?.status === "passed"
+                      : uploadedFile
                         ? "border-green-300 bg-green-50"
-                        : scanFailed
-                          ? "border-red-300 bg-red-50"
-                          : uploadedFile?.scanData?.status === "warnings"
-                            ? "border-amber-300 bg-amber-50"
-                            : "border-muted-foreground/30 hover:border-primary/50"
+                        : "border-muted-foreground/30 hover:border-primary/50"
                   }`}
                 >
                   <input
@@ -589,17 +343,15 @@ export default function SubmissionForm() {
                     accept=".pdf,.jpg,.jpeg,.png,.webp"
                     className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                     onChange={handleFileChange}
-                    disabled={isScanning}
+                    disabled={isUploading}
                   />
                   <div className="flex items-center gap-3 pointer-events-none">
-                    {isScanning ? (
+                    {isUploading ? (
                       <>
                         <Loader2 className="h-8 w-8 text-primary animate-spin shrink-0" />
                         <div>
-                          <p className="text-sm font-medium text-primary">Scanning document...</p>
-                          <p className="text-xs text-muted-foreground">
-                            Checking for required fields and template compliance
-                          </p>
+                          <p className="text-sm font-medium text-primary">Uploading...</p>
+                          <p className="text-xs text-muted-foreground">Please wait</p>
                         </div>
                       </>
                     ) : selectedFileName ? (
@@ -623,26 +375,17 @@ export default function SubmissionForm() {
                     )}
                   </div>
                 </div>
-
-                {uploadedFile?.scanData && (
-                  <ScanResultPanel scan={uploadedFile.scanData} />
-                )}
               </div>
 
               <Button
                 type="submit"
                 className="w-full"
-                disabled={isPending || isScanning || !uploadedFile || scanFailed}
+                disabled={isPending || isUploading || !uploadedFile}
               >
                 {isPending ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                     Submitting...
-                  </>
-                ) : isScanning ? (
-                  <>
-                    <ScanLine className="mr-2 h-4 w-4" />
-                    Scanning file...
                   </>
                 ) : (
                   <>
@@ -651,12 +394,6 @@ export default function SubmissionForm() {
                   </>
                 )}
               </Button>
-
-              {scanFailed && (
-                <p className="text-center text-xs text-red-600">
-                  Please resolve the document issues above before submitting.
-                </p>
-              )}
             </form>
           </Form>
         </CardContent>
