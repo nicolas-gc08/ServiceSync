@@ -1,6 +1,15 @@
 import nodemailer from "nodemailer";
 import { logger } from "./logger";
 
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
 const SMTP_HOST = process.env.SMTP_HOST;
 const SMTP_PORT = parseInt(process.env.SMTP_PORT ?? "587", 10);
 const SMTP_USER = process.env.SMTP_USER;
@@ -50,7 +59,7 @@ export async function sendStatusNotification({
       <tr>
         <td style="padding: 16px 24px;">
           <p style="margin: 0 0 8px; font-size: 14px; font-weight: 600; color: #374151;">Faculty Notes:</p>
-          <p style="margin: 0; font-size: 14px; color: #4b5563; background: #f9fafb; border-left: 3px solid #d1d5db; padding: 12px 16px; border-radius: 4px;">${notes.trim()}</p>
+          <p style="margin: 0; font-size: 14px; color: #4b5563; background: #f9fafb; border-left: 3px solid #d1d5db; padding: 12px 16px; border-radius: 4px;">${escapeHtml(notes.trim())}</p>
         </td>
       </tr>`
       : "";

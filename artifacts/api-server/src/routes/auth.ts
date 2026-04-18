@@ -14,6 +14,13 @@ const loginLimiter = rateLimit({
 const ADMIN_USERNAME = process.env.ADMIN_USERNAME ?? "admin";
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD ?? "volunteer2024";
 
+if (!process.env.ADMIN_PASSWORD) {
+  console.warn(
+    "[SECURITY] ADMIN_PASSWORD is not set as an environment secret. " +
+    "The system is using the default password. Set ADMIN_PASSWORD as a secret before going live."
+  );
+}
+
 router.post("/auth/login", loginLimiter, async (req, res): Promise<void> => {
   const { username, password } = req.body;
 

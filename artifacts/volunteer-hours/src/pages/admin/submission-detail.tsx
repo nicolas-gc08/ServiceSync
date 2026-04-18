@@ -239,16 +239,17 @@ export default function SubmissionDetail() {
   const deleteSubmission = useDeleteSubmission();
   const [notes, setNotes] = useState("");
   const [status, setStatus] = useState<SubmissionUpdateStatus>("pending");
-  const [isEditing, setIsEditing] = useState(false);
+  const [initialized, setInitialized] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [imageRotation, setImageRotation] = useState(0);
 
-  // Initialize state when submission data loads
-  if (submission && !isEditing) {
-    setNotes(submission.notes || "");
-    setStatus(submission.status as SubmissionUpdateStatus);
-    setIsEditing(true);
-  }
+  useEffect(() => {
+    if (submission && !initialized) {
+      setNotes(submission.notes || "");
+      setStatus(submission.status as SubmissionUpdateStatus);
+      setInitialized(true);
+    }
+  }, [submission?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleUpdate = async () => {
     try {

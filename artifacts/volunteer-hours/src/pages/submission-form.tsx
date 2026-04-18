@@ -7,7 +7,6 @@ import {
   CheckCircle2,
   Upload,
   Loader2,
-  X,
   FileText,
 } from "lucide-react";
 import { useCreateSubmission } from "@workspace/api-client-react";
@@ -136,10 +135,14 @@ export default function SubmissionForm() {
       });
 
       setSuccessData({ id: submission.submissionId, timestamp: new Date() });
-    } catch (error) {
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : String(error);
+      const isCollision = msg.includes("ID_COLLISION") || msg.includes("409");
       toast({
-        title: "Submission failed",
-        description: "There was an error submitting your hours. Please try again.",
+        title: isCollision ? "Please try submitting again" : "Submission failed",
+        description: isCollision
+          ? "A rare reference ID conflict occurred. Your form is still filled in — just click Submit again."
+          : "There was an error submitting your hours. Please try again.",
         variant: "destructive",
       });
     } finally {

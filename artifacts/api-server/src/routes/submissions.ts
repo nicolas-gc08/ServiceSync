@@ -64,6 +64,19 @@ function generateSubmissionId(): string {
   return `VH-${year}${month}${day}-${rand}`;
 }
 
+async function generateUniqueSubmissionId(): Promise<string> {
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const id = generateSubmissionId();
+    const existing = await db
+      .select({ id: submissionsTable.id })
+      .from(submissionsTable)
+      .where(eq(submissionsTable.submissionId, id))
+      .limit(1);
+    if (existing.length === 0) return id;
+  }
+  throw new Error("ID_COLLISION");
+}
+
 async function runBackgroundScan(submissionId: number, fileUrl: string): Promise<void> {
   const objectName = decodeURIComponent(fileUrl.replace("/api/submissions/file/", ""));
   const ext = path.extname(objectName) || ".tmp";
@@ -117,7 +130,7 @@ router.post("/submissions/upload", uploadLimiter, upload.single("file"), async (
   res.json({ fileUrl, fileName: req.file.originalname });
 });
 
-router.get("/submissions/file/:objectPath", async (req, res): Promise<void> => {
+router.get("/submissions/file/:objectPath", requireAdmin, async (req, res): Promise<void> => {
   const objectName = decodeURIComponent(req.params.objectPath || "");
   if (!objectName) {
     res.status(400).json({ error: "Invalid file path" });
@@ -200,7 +213,14 @@ router.post("/submissions", async (req, res): Promise<void> => {
   }
 
   const data = parsed.data;
-  const submissionId = generateSubmissionId();
+
+  let submissionId: string;
+  try {
+    submissionId = await generateUniqueSubmissionId();
+  } catch {
+    res.status(409).json({ error: "ID_COLLISION", message: "A reference ID conflict occurred. Please try submitting again." });
+    return;
+  }
 
   const [submission] = await db
     .insert(submissionsTable)
