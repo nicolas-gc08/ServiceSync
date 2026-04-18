@@ -192,6 +192,26 @@ router.get("/submissions/:id", async (req, res): Promise<void> => {
   res.json(submission);
 });
 
+router.delete("/submissions/:id", async (req, res): Promise<void> => {
+  const paramsResult = GetSubmissionParams.safeParse(req.params);
+  if (!paramsResult.success) {
+    res.status(400).json({ error: "Invalid submission ID" });
+    return;
+  }
+
+  const [deleted] = await db
+    .delete(submissionsTable)
+    .where(eq(submissionsTable.id, paramsResult.data.id))
+    .returning();
+
+  if (!deleted) {
+    res.status(404).json({ error: "Submission not found" });
+    return;
+  }
+
+  res.status(204).end();
+});
+
 router.patch("/submissions/:id", async (req, res): Promise<void> => {
   const paramsResult = UpdateSubmissionParams.safeParse(req.params);
   if (!paramsResult.success) {

@@ -1,11 +1,12 @@
 import { useState } from "react";
 import { useParams, useLocation } from "wouter";
 import { format } from "date-fns";
-import { Loader2, ArrowLeft, FileCheck, Check, X, Save, AlertCircle, AlertTriangle, CheckCircle2, ScanLine } from "lucide-react";
+import { Loader2, ArrowLeft, FileCheck, Check, X, Save, AlertCircle, AlertTriangle, CheckCircle2, ScanLine, Trash2 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { 
   useGetSubmission, 
   useUpdateSubmission,
+  useDeleteSubmission,
   getGetSubmissionQueryKey,
   getGetSubmissionStatsQueryKey,
   getListSubmissionsQueryKey,
@@ -18,6 +19,16 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { Separator } from "@/components/ui/separator";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface FieldResult { found: boolean; value: string | null; }
 interface ScanData {
@@ -155,9 +166,11 @@ export default function SubmissionDetail() {
   });
 
   const updateSubmission = useUpdateSubmission();
+  const deleteSubmission = useDeleteSubmission();
   const [notes, setNotes] = useState("");
   const [status, setStatus] = useState<SubmissionUpdateStatus>("pending");
   const [isEditing, setIsEditing] = useState(false);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
 
   // Initialize state when submission data loads
   if (submission && !isEditing) {
@@ -192,6 +205,18 @@ export default function SubmissionDetail() {
         description: "There was an error updating the submission.",
         variant: "destructive"
       });
+    }
+  };
+
+  const handleDelete = async () => {
+    try {
+      await deleteSubmission.mutateAsync({ id: numericId });
+      queryClient.invalidateQueries({ queryKey: getListSubmissionsQueryKey() });
+      queryClient.invalidateQueries({ queryKey: getGetSubmissionStatsQueryKey() });
+      toast({ title: "Submission deleted", description: "The submission has been permanently removed." });
+      setLocation("/admin");
+    } catch {
+      toast({ title: "Delete failed", description: "There was an error deleting the submission.", variant: "destructive" });
     }
   };
 
@@ -238,6 +263,15 @@ export default function SubmissionDetail() {
         </Button>
         <h1 className="text-2xl font-bold">Review Submission</h1>
         <div className="ml-auto flex gap-2">
+          <Button
+            variant="outline"
+            className="border-gray-200 text-gray-600 hover:bg-red-50 hover:text-red-700 hover:border-red-200"
+            onClick={() => setDeleteConfirmOpen(true)}
+            disabled={deleteSubmission.isPending}
+          >
+            <Trash2 className="h-4 w-4 mr-2" />
+            Delete
+          </Button>
           <Button 
             variant="outline" 
             className="border-red-200 bg-red-50 text-red-700 hover:bg-red-100 hover:text-red-800"
@@ -424,6 +458,35 @@ export default function SubmissionDetail() {
           </Card>
         </div>
       </div>
+
+      <AlertDialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this submission?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete the submission for{" "}
+              <span className="font-medium text-foreground">
+                {submission.firstName} {submission.lastName}
+              </span>{" "}
+              (ID: {submission.submissionId}). This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-red-600 hover:bg-red-700 text-white"
+              onClick={handleDelete}
+            >
+              {deleteSubmission.isPending ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <Trash2 className="h-4 w-4 mr-2" />
+              )}
+              Delete submission
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

@@ -157,6 +157,13 @@ export const UpdateSubmissionResponse = zod.object({
 });
 
 /**
+ * @summary Delete a submission
+ */
+export const DeleteSubmissionParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+/**
  * @summary Get an upload URL/token for file upload
  */
 export const GetUploadTokenResponse = zod.object({
