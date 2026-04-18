@@ -208,11 +208,8 @@ async function analyzeWithLLM(content: string, isImage: boolean): Promise<ScanRe
   });
 
   const raw = response.choices[0]?.message?.content ?? "";
-  console.log("[scan] raw AI response:", raw.slice(0, 500));
   const cleaned = raw.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "").trim();
   const parsed = JSON.parse(cleaned);
-  console.log("[scan] parsed entries:", JSON.stringify(parsed.entries));
-  console.log("[scan] parsed fields.totalHoursVolunteered:", JSON.stringify(parsed.fields?.totalHoursVolunteered));
 
   const { isCorrectTemplate, isLegible, fields, entries, warnings, errors } = parsed;
 
