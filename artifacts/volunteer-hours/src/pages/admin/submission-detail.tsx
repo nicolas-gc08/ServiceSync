@@ -241,7 +241,7 @@ export default function SubmissionDetail() {
   const [status, setStatus] = useState<SubmissionUpdateStatus>("pending");
   const [isEditing, setIsEditing] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
-  const [imageRotation, setImageRotation] = useState<0 | 90 | 180 | 270>(0);
+  const [imageRotation, setImageRotation] = useState(0);
 
   // Initialize state when submission data loads
   if (submission && !isEditing) {
@@ -495,7 +495,7 @@ export default function SubmissionDetail() {
                       </span>
                       {isImage && (
                         <button
-                          onClick={() => setImageRotation(r => ((r - 90 + 360) % 360) as 0 | 90 | 180 | 270)}
+                          onClick={() => setImageRotation(r => r - 90)}
                           className="flex items-center gap-1 text-xs font-normal text-muted-foreground hover:text-foreground transition-colors"
                           title="Rotate 90° counterclockwise"
                         >
@@ -524,8 +524,7 @@ export default function SubmissionDetail() {
                         style={{
                           transform: `rotate(${imageRotation}deg)`,
                           transition: "transform 0.3s ease",
-                          maxWidth: imageRotation === 90 || imageRotation === 270 ? "100%" : "100%",
-                          maxHeight: imageRotation === 90 || imageRotation === 270 ? "80vw" : "100%",
+                          maxHeight: Math.abs(imageRotation) % 180 === 90 ? "80vw" : "100%",
                         }}
                       />
                     </div>
