@@ -310,6 +310,10 @@ components:
           type: ["string", "null"]
         extractedHours:
           type: ["string", "null"]
+        scanStatus:
+          type: ["string", "null"]
+        scanData:
+          type: ["string", "null"]
         createdAt:
           type: string
           format: date-time
@@ -330,6 +334,8 @@ components:
         - notes
         - extractedOrg
         - extractedHours
+        - scanStatus
+        - scanData
         - createdAt
         - updatedAt
 
@@ -350,6 +356,10 @@ components:
           type: string
         fileName:
           type: string
+        scanStatus:
+          type: ["string", "null"]
+        scanData:
+          type: ["string", "null"]
       required:
         - firstName
         - lastName

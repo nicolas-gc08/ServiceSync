@@ -12,6 +12,7 @@ import {
   ListSubmissionsQueryParams,
 } from "@workspace/api-zod";
 import { sendStatusNotification } from "../lib/email";
+import { scanFile } from "../lib/scan";
 
 const router: IRouter = Router();
 
@@ -57,7 +58,20 @@ router.post("/submissions/upload", upload.single("file"), async (req, res): Prom
   }
 
   const fileUrl = `/api/submissions/file/${req.file.filename}`;
-  res.json({ fileUrl, fileName: req.file.originalname });
+  const filePath = path.join(UPLOADS_DIR, req.file.filename);
+
+  let scanStatus: string = "error";
+  let scanData: string | null = null;
+
+  try {
+    const result = await scanFile(filePath);
+    scanStatus = result.status;
+    scanData = JSON.stringify(result);
+  } catch (err) {
+    console.error("Scan failed:", err);
+  }
+
+  res.json({ fileUrl, fileName: req.file.originalname, scanStatus, scanData });
 });
 
 router.get("/submissions/file/:filename", async (req, res): Promise<void> => {
@@ -150,6 +164,8 @@ router.post("/submissions", async (req, res): Promise<void> => {
       fileUrl: data.fileUrl,
       fileName: data.fileName,
       status: "pending",
+      scanStatus: data.scanStatus ?? null,
+      scanData: data.scanData ?? null,
     })
     .returning();
 

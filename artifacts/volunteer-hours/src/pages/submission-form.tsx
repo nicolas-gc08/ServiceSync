@@ -1,18 +1,29 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { format } from "date-fns";
-import { CheckCircle2, Upload, File, Loader2 } from "lucide-react";
+import {
+  CheckCircle2,
+  Upload,
+  Loader2,
+  AlertCircle,
+  AlertTriangle,
+  Check,
+  X,
+  ScanLine,
+  FileText,
+} from "lucide-react";
 import { useCreateSubmission } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 
-const MAX_FILE_SIZE = 5000000;
+const MAX_FILE_SIZE = 20 * 1024 * 1024;
 const ACCEPTED_FILE_TYPES = ["application/pdf", "image/jpeg", "image/png", "image/webp"];
 
 const formSchema = z.object({
@@ -21,20 +32,164 @@ const formSchema = z.object({
   studentId: z.string().min(4, "Student ID is required"),
   graduationYear: z.coerce.number().min(2024).max(2030),
   email: z.string().email("Invalid email address").optional().or(z.literal("")),
-  file: z.any()
-    .refine((file) => !!file, "File is required")
-    .refine((file) => !file || file.size <= MAX_FILE_SIZE, "Max file size is 5MB.")
-    .refine(
-      (file) => ACCEPTED_FILE_TYPES.includes(file?.type),
-      "Only .pdf, .jpg, .jpeg, .png and .webp formats are supported."
-    )
 });
+
+interface FieldResult {
+  found: boolean;
+  value: string | null;
+}
+
+interface ScanResult {
+  status: "passed" | "warnings" | "failed" | "error";
+  message: string;
+  isCorrectTemplate: boolean;
+  isLegible: boolean;
+  fields: {
+    studentName: FieldResult;
+    studentNumber: FieldResult;
+    graduationYear: FieldResult;
+    schoolName: FieldResult;
+    schoolYear: FieldResult;
+    gradeLevel: FieldResult;
+    organization: FieldResult;
+    totalHoursVolunteered: FieldResult;
+  };
+  entries: Array<{
+    date: string | null;
+    activity: string | null;
+    timeIn: string | null;
+    timeOut: string | null;
+    hours: string | null;
+    contactName: string | null;
+    hasSignature: boolean;
+  }>;
+  warnings: string[];
+  errors: string[];
+}
+
+interface UploadedFile {
+  fileUrl: string;
+  fileName: string;
+  scanStatus: string;
+  scanData: ScanResult;
+}
+
+const FIELD_LABELS: Record<keyof ScanResult["fields"], string> = {
+  studentName: "Student Name",
+  studentNumber: "Student Number",
+  graduationYear: "Graduation Year",
+  schoolName: "School Name",
+  schoolYear: "School Year",
+  gradeLevel: "Grade Level",
+  organization: "Organization Name",
+  totalHoursVolunteered: "Total Hours Volunteered",
+};
+
+function ScanResultPanel({ scan }: { scan: ScanResult }) {
+  const isFailed = scan.status === "failed" || scan.status === "error";
+  const isWarning = scan.status === "warnings";
+  const isPassed = scan.status === "passed";
+
+  const panelClass = isFailed
+    ? "border-red-200 bg-red-50"
+    : isWarning
+      ? "border-amber-200 bg-amber-50"
+      : "border-green-200 bg-green-50";
+
+  const iconClass = isFailed
+    ? "text-red-600"
+    : isWarning
+      ? "text-amber-600"
+      : "text-green-600";
+
+  const Icon = isFailed ? AlertCircle : isWarning ? AlertTriangle : CheckCircle2;
+
+  return (
+    <div className={`rounded-lg border p-4 space-y-4 ${panelClass}`}>
+      <div className={`flex items-start gap-3 ${iconClass}`}>
+        <Icon className="h-5 w-5 mt-0.5 shrink-0" />
+        <div>
+          <p className="font-medium text-sm">
+            {isFailed ? "Document Issues Found" : isWarning ? "Document Warnings" : "Document Scan Passed"}
+          </p>
+          <p className="text-sm text-muted-foreground mt-0.5">{scan.message}</p>
+        </div>
+      </div>
+
+      {scan.errors.length > 0 && (
+        <ul className="space-y-1">
+          {scan.errors.map((e, i) => (
+            <li key={i} className="flex items-start gap-2 text-sm text-red-700">
+              <X className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+              {e}
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {scan.warnings.length > 0 && (
+        <ul className="space-y-1">
+          {scan.warnings.map((w, i) => (
+            <li key={i} className="flex items-start gap-2 text-sm text-amber-700">
+              <AlertTriangle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+              {w}
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {scan.isCorrectTemplate && scan.isLegible && (
+        <div className="space-y-1.5 pt-1">
+          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Field Detection</p>
+          <div className="grid grid-cols-2 gap-1">
+            {(Object.entries(scan.fields) as [keyof typeof scan.fields, FieldResult][]).map(([key, field]) => (
+              <div key={key} className="flex items-center gap-1.5 text-xs">
+                {field.found ? (
+                  <Check className="h-3 w-3 text-green-600 shrink-0" />
+                ) : (
+                  <X className="h-3 w-3 text-red-500 shrink-0" />
+                )}
+                <span className={field.found ? "text-foreground" : "text-muted-foreground"}>
+                  {FIELD_LABELS[key]}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {scan.isCorrectTemplate && scan.isLegible && scan.entries.length > 0 && (
+        <div className="space-y-1 pt-1">
+          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+            Log Entries Detected ({scan.entries.length})
+          </p>
+          <div className="space-y-1">
+            {scan.entries.map((entry, i) => (
+              <div key={i} className="flex items-center justify-between text-xs bg-white/60 rounded px-2 py-1">
+                <span className="text-muted-foreground">{entry.date ?? "No date"}</span>
+                <span className="max-w-[120px] truncate">{entry.activity ?? "No activity"}</span>
+                <span className="font-medium">{entry.hours ?? "—"} hrs</span>
+                <span className={entry.hasSignature ? "text-green-600" : "text-red-500"}>
+                  {entry.hasSignature ? "Signed" : "No sig"}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function SubmissionForm() {
   const { toast } = useToast();
-  const [isUploading, setIsUploading] = useState(false);
-  const [successData, setSuccessData] = useState<{ id: string, timestamp: Date } | null>(null);
-  
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isScanning, setIsScanning] = useState(false);
+  const [uploadedFile, setUploadedFile] = useState<UploadedFile | null>(null);
+  const [selectedFileName, setSelectedFileName] = useState<string | null>(null);
+  const [successData, setSuccessData] = useState<{ id: string; timestamp: Date } | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   const createSubmission = useCreateSubmission();
 
   const form = useForm<z.infer<typeof formSchema>>({
@@ -45,28 +200,84 @@ export default function SubmissionForm() {
       studentId: "",
       graduationYear: new Date().getFullYear(),
       email: "",
-      file: undefined
     },
   });
 
-  async function onSubmit(values: z.infer<typeof formSchema>) {
+  async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!ACCEPTED_FILE_TYPES.includes(file.type)) {
+      toast({
+        title: "Unsupported file type",
+        description: "Please upload a PDF, JPG, PNG, or WebP file.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (file.size > MAX_FILE_SIZE) {
+      toast({
+        title: "File too large",
+        description: "Maximum file size is 20MB.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setSelectedFileName(file.name);
+    setUploadedFile(null);
+    setIsScanning(true);
+
     try {
-      setIsUploading(true);
-      
       const formData = new FormData();
-      formData.append("file", values.file);
-      
-      const uploadRes = await fetch("/api/submissions/upload", {
+      formData.append("file", file);
+
+      const res = await fetch("/api/submissions/upload", {
         method: "POST",
         body: formData,
       });
-      
-      if (!uploadRes.ok) {
-        throw new Error("Failed to upload file");
-      }
-      
-      const { fileUrl, fileName } = await uploadRes.json();
-      
+
+      if (!res.ok) throw new Error("Upload failed");
+
+      const data = await res.json();
+
+      setUploadedFile({
+        fileUrl: data.fileUrl,
+        fileName: data.fileName,
+        scanStatus: data.scanStatus,
+        scanData: typeof data.scanData === "string" ? JSON.parse(data.scanData) : data.scanData,
+      });
+    } catch (err) {
+      toast({
+        title: "Upload failed",
+        description: "There was an error uploading your file. Please try again.",
+        variant: "destructive",
+      });
+      setSelectedFileName(null);
+    } finally {
+      setIsScanning(false);
+    }
+  }
+
+  async function onSubmit(values: z.infer<typeof formSchema>) {
+    if (!uploadedFile) {
+      toast({ title: "No file uploaded", description: "Please select a file first.", variant: "destructive" });
+      return;
+    }
+
+    if (uploadedFile.scanData?.status === "failed") {
+      toast({
+        title: "Document issues",
+        description: "Please fix the document issues before submitting.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      setIsSubmitting(true);
+
       const submission = await createSubmission.mutateAsync({
         data: {
           firstName: values.firstName,
@@ -74,24 +285,24 @@ export default function SubmissionForm() {
           studentId: values.studentId,
           graduationYear: values.graduationYear,
           email: values.email || null,
-          fileUrl,
-          fileName
-        }
+          fileUrl: uploadedFile.fileUrl,
+          fileName: uploadedFile.fileName,
+          scanStatus: uploadedFile.scanStatus,
+          scanData: typeof uploadedFile.scanData === "object"
+            ? JSON.stringify(uploadedFile.scanData)
+            : uploadedFile.scanData,
+        },
       });
-      
-      setSuccessData({
-        id: submission.submissionId,
-        timestamp: new Date()
-      });
-      
+
+      setSuccessData({ id: submission.submissionId, timestamp: new Date() });
     } catch (error) {
       toast({
         title: "Submission failed",
         description: "There was an error submitting your hours. Please try again.",
-        variant: "destructive"
+        variant: "destructive",
       });
     } finally {
-      setIsUploading(false);
+      setIsSubmitting(false);
     }
   }
 
@@ -123,10 +334,15 @@ export default function SubmissionForm() {
             </div>
           </CardContent>
           <CardFooter>
-            <Button className="w-full" onClick={() => {
-              form.reset();
-              setSuccessData(null);
-            }}>
+            <Button
+              className="w-full"
+              onClick={() => {
+                form.reset();
+                setSuccessData(null);
+                setUploadedFile(null);
+                setSelectedFileName(null);
+              }}
+            >
               Submit Another
             </Button>
           </CardFooter>
@@ -135,16 +351,15 @@ export default function SubmissionForm() {
     );
   }
 
-  const isPending = isUploading || createSubmission.isPending;
+  const scanFailed = uploadedFile?.scanData?.status === "failed" || uploadedFile?.scanData?.status === "error";
+  const isPending = isSubmitting;
 
   return (
     <div className="min-h-[100dvh] flex items-center justify-center bg-gray-50/50 p-4 py-12">
       <Card className="w-full max-w-xl shadow-lg">
         <CardHeader className="space-y-1">
           <CardTitle className="text-2xl font-bold tracking-tight text-primary">Volunteer Hours</CardTitle>
-          <CardDescription>
-            Submit your community service hours for faculty review.
-          </CardDescription>
+          <CardDescription>Submit your community service hours for faculty review.</CardDescription>
         </CardHeader>
         <CardContent>
           <Form {...form}>
@@ -223,7 +438,9 @@ export default function SubmissionForm() {
                 name="email"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Email <span className="text-muted-foreground font-normal">(Optional)</span></FormLabel>
+                    <FormLabel>
+                      Email <span className="text-muted-foreground font-normal">(Optional)</span>
+                    </FormLabel>
                     <FormControl>
                       <Input type="email" placeholder="jane.doe@student.school.edu" {...field} />
                     </FormControl>
@@ -232,37 +449,83 @@ export default function SubmissionForm() {
                 )}
               />
 
-              <FormField
-                control={form.control}
-                name="file"
-                render={({ field: { value, onChange, ...field } }) => (
-                  <FormItem>
-                    <FormLabel>Proof of Hours</FormLabel>
-                    <FormControl>
-                      <div className="grid w-full items-center gap-1.5">
-                        <Input 
-                          type="file" 
-                          accept=".pdf,.jpg,.jpeg,.png,.webp"
-                          className="cursor-pointer file:cursor-pointer file:bg-primary/10 file:text-primary file:border-0 file:rounded-md file:px-4 file:py-1 file:mr-4 file:font-medium hover:file:bg-primary/20 transition-colors"
-                          onChange={(e) => {
-                            const file = e.target.files?.[0];
-                            if (file) onChange(file);
-                          }}
-                          {...field} 
-                        />
-                        <p className="text-xs text-muted-foreground">Upload a signed form or certificate (PDF or Image, max 5MB).</p>
-                      </div>
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+              <div className="space-y-2">
+                <label className="text-sm font-medium">
+                  Volunteer Hours Log Form <span className="text-red-500">*</span>
+                </label>
+                <div
+                  className={`relative border-2 border-dashed rounded-lg p-4 transition-colors ${
+                    isScanning
+                      ? "border-primary/50 bg-primary/5"
+                      : uploadedFile?.scanData?.status === "passed"
+                        ? "border-green-300 bg-green-50"
+                        : scanFailed
+                          ? "border-red-300 bg-red-50"
+                          : uploadedFile?.scanData?.status === "warnings"
+                            ? "border-amber-300 bg-amber-50"
+                            : "border-muted-foreground/30 hover:border-primary/50"
+                  }`}
+                >
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept=".pdf,.jpg,.jpeg,.png,.webp"
+                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                    onChange={handleFileChange}
+                    disabled={isScanning}
+                  />
+                  <div className="flex items-center gap-3 pointer-events-none">
+                    {isScanning ? (
+                      <>
+                        <Loader2 className="h-8 w-8 text-primary animate-spin shrink-0" />
+                        <div>
+                          <p className="text-sm font-medium text-primary">Scanning document...</p>
+                          <p className="text-xs text-muted-foreground">
+                            Checking for required fields and template compliance
+                          </p>
+                        </div>
+                      </>
+                    ) : selectedFileName ? (
+                      <>
+                        <FileText className="h-8 w-8 text-primary shrink-0" />
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium truncate">{selectedFileName}</p>
+                          <p className="text-xs text-muted-foreground">Click to replace file</p>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <Upload className="h-8 w-8 text-muted-foreground shrink-0" />
+                        <div>
+                          <p className="text-sm font-medium">Upload your volunteer log form</p>
+                          <p className="text-xs text-muted-foreground">
+                            PDF or image (JPG, PNG, WebP) — max 20MB
+                          </p>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </div>
 
-              <Button type="submit" className="w-full" disabled={isPending}>
+                {uploadedFile?.scanData && (
+                  <ScanResultPanel scan={uploadedFile.scanData} />
+                )}
+              </div>
+
+              <Button
+                type="submit"
+                className="w-full"
+                disabled={isPending || isScanning || !uploadedFile || scanFailed}
+              >
                 {isPending ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                     Submitting...
+                  </>
+                ) : isScanning ? (
+                  <>
+                    <ScanLine className="mr-2 h-4 w-4" />
+                    Scanning file...
                   </>
                 ) : (
                   <>
@@ -271,6 +534,12 @@ export default function SubmissionForm() {
                   </>
                 )}
               </Button>
+
+              {scanFailed && (
+                <p className="text-center text-xs text-red-600">
+                  Please resolve the document issues above before submitting.
+                </p>
+              )}
             </form>
           </Form>
         </CardContent>

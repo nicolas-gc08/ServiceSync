@@ -65,6 +65,10 @@ export interface Submission {
   extractedOrg: string | null;
   /** @nullable */
   extractedHours: string | null;
+  /** @nullable */
+  scanStatus: string | null;
+  /** @nullable */
+  scanData: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -78,6 +82,10 @@ export interface SubmissionInput {
   email?: string | null;
   fileUrl: string;
   fileName: string;
+  /** @nullable */
+  scanStatus?: string | null;
+  /** @nullable */
+  scanData?: string | null;
 }
 
 export type SubmissionUpdateStatus =

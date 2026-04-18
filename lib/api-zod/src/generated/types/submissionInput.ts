@@ -15,4 +15,8 @@ export interface SubmissionInput {
   email?: string | null;
   fileUrl: string;
   fileName: string;
+  /** @nullable */
+  scanStatus?: string | null;
+  /** @nullable */
+  scanData?: string | null;
 }

@@ -16,6 +16,8 @@ export const submissionsTable = pgTable("submissions", {
   notes: text("notes"),
   extractedOrg: text("extracted_org"),
   extractedHours: text("extracted_hours"),
+  scanStatus: text("scan_status"),
+  scanData: text("scan_data"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });

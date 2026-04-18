@@ -48,6 +48,27 @@ Student email notifications are sent when a submission is approved or rejected. 
 
 If not configured, email sending is skipped silently (no error). For Gmail, use an App Password (not your main password).
 
+## PDF Scan Feature
+
+Uploaded documents are automatically scanned using AI (OpenAI via Replit AI Integrations — no API key needed). Scans run on the server immediately after upload.
+
+**How it works:**
+- PDFs: text is extracted with `pdf-parse`, then analyzed by `gpt-5-mini`
+- Images: sent directly to the vision API for analysis
+- The scan detects: Student Name, Student Number, Graduation Year, School Name, School Year, Grade Level, Organization Name, Total Hours Volunteered, and each log entry (date, activity, hours, contact signature)
+
+**Results are shown:**
+- On the student form after file selection (before submission)
+- On the admin detail page in the "Review Details" sidebar
+
+**Scan statuses:**
+- `passed` — all required fields detected
+- `warnings` — form is correct template but some fields are missing/incomplete; submission still allowed
+- `failed` — wrong template, illegible, or critical issues; submission is blocked
+- `error` — scan system error; submission still allowed with a note
+
+**Scan data is stored** in the `scan_data` and `scan_status` columns on the submissions table.
+
 ## Key Commands
 
 - `pnpm run typecheck` — full typecheck across all packages

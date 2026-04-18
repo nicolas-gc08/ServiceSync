@@ -65,6 +65,8 @@ export const ListSubmissionsResponseItem = zod.object({
   notes: zod.string().nullable(),
   extractedOrg: zod.string().nullable(),
   extractedHours: zod.string().nullable(),
+  scanStatus: zod.string().nullable(),
+  scanData: zod.string().nullable(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -81,6 +83,8 @@ export const CreateSubmissionBody = zod.object({
   email: zod.string().nullish(),
   fileUrl: zod.string(),
   fileName: zod.string(),
+  scanStatus: zod.string().nullish(),
+  scanData: zod.string().nullish(),
 });
 
 /**
@@ -114,6 +118,8 @@ export const GetSubmissionResponse = zod.object({
   notes: zod.string().nullable(),
   extractedOrg: zod.string().nullable(),
   extractedHours: zod.string().nullable(),
+  scanStatus: zod.string().nullable(),
+  scanData: zod.string().nullable(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });
@@ -144,6 +150,8 @@ export const UpdateSubmissionResponse = zod.object({
   notes: zod.string().nullable(),
   extractedOrg: zod.string().nullable(),
   extractedHours: zod.string().nullable(),
+  scanStatus: zod.string().nullable(),
+  scanData: zod.string().nullable(),
   createdAt: zod.coerce.date(),
   updatedAt: zod.coerce.date(),
 });

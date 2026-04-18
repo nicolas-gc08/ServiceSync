@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useParams, useLocation } from "wouter";
 import { format } from "date-fns";
-import { Loader2, ArrowLeft, FileCheck, Check, X, Save } from "lucide-react";
+import { Loader2, ArrowLeft, FileCheck, Check, X, Save, AlertCircle, AlertTriangle, CheckCircle2, ScanLine } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { 
   useGetSubmission, 
@@ -18,6 +18,126 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { Separator } from "@/components/ui/separator";
+
+interface FieldResult { found: boolean; value: string | null; }
+interface ScanData {
+  status: "passed" | "warnings" | "failed" | "error";
+  message: string;
+  isCorrectTemplate: boolean;
+  isLegible: boolean;
+  fields: {
+    studentName: FieldResult;
+    studentNumber: FieldResult;
+    graduationYear: FieldResult;
+    schoolName: FieldResult;
+    schoolYear: FieldResult;
+    gradeLevel: FieldResult;
+    organization: FieldResult;
+    totalHoursVolunteered: FieldResult;
+  };
+  entries: Array<{
+    date: string | null;
+    activity: string | null;
+    timeIn: string | null;
+    timeOut: string | null;
+    hours: string | null;
+    contactName: string | null;
+    hasSignature: boolean;
+  }>;
+  warnings: string[];
+  errors: string[];
+}
+
+const FIELD_LABELS: Record<keyof ScanData["fields"], string> = {
+  studentName: "Student Name",
+  studentNumber: "Student Number",
+  graduationYear: "Graduation Year",
+  schoolName: "School Name",
+  schoolYear: "School Year",
+  gradeLevel: "Grade Level",
+  organization: "Organization Name",
+  totalHoursVolunteered: "Total Hours",
+};
+
+function ScanPanel({ scan }: { scan: ScanData }) {
+  const isFailed = scan.status === "failed" || scan.status === "error";
+  const isWarning = scan.status === "warnings";
+  const isPassed = scan.status === "passed";
+
+  const statusBadge = isFailed
+    ? <Badge variant="destructive">Failed</Badge>
+    : isWarning
+      ? <Badge className="bg-amber-100 text-amber-800 hover:bg-amber-100">Warnings</Badge>
+      : <Badge className="bg-green-100 text-green-800 hover:bg-green-100">Passed</Badge>;
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2 text-sm font-medium">
+          <ScanLine className="h-4 w-4 text-primary" />
+          <span>Document Scan</span>
+        </div>
+        {statusBadge}
+      </div>
+
+      {scan.errors.length > 0 && (
+        <ul className="space-y-1">
+          {scan.errors.map((e, i) => (
+            <li key={i} className="flex items-start gap-2 text-xs text-red-700 bg-red-50 rounded px-2 py-1">
+              <AlertCircle className="h-3 w-3 mt-0.5 shrink-0" />{e}
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {scan.warnings.length > 0 && (
+        <ul className="space-y-1">
+          {scan.warnings.map((w, i) => (
+            <li key={i} className="flex items-start gap-2 text-xs text-amber-700 bg-amber-50 rounded px-2 py-1">
+              <AlertTriangle className="h-3 w-3 mt-0.5 shrink-0" />{w}
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {scan.isCorrectTemplate && scan.isLegible && (
+        <div className="space-y-1">
+          <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide">Fields</p>
+          <div className="grid grid-cols-2 gap-1">
+            {(Object.entries(scan.fields) as [keyof typeof scan.fields, FieldResult][]).map(([key, field]) => (
+              <div key={key} className="flex items-center gap-1.5 text-xs">
+                {field.found
+                  ? <Check className="h-3 w-3 text-green-600 shrink-0" />
+                  : <X className="h-3 w-3 text-red-400 shrink-0" />}
+                <span className={field.found ? "" : "text-muted-foreground"}>{FIELD_LABELS[key]}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {scan.entries && scan.entries.length > 0 && (
+        <div className="space-y-1">
+          <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide">
+            Log Entries ({scan.entries.length})
+          </p>
+          <div className="space-y-1 max-h-32 overflow-y-auto">
+            {scan.entries.map((entry, i) => (
+              <div key={i} className="text-xs bg-muted/50 rounded px-2 py-1 flex items-center justify-between gap-2">
+                <span className="text-muted-foreground shrink-0">{entry.date ?? "—"}</span>
+                <span className="flex-1 truncate">{entry.activity ?? "—"}</span>
+                <span className="font-medium shrink-0">{entry.hours ?? "—"}h</span>
+                <span className={`shrink-0 ${entry.hasSignature ? "text-green-600" : "text-red-400"}`}>
+                  {entry.hasSignature ? "Signed" : "No sig"}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function SubmissionDetail() {
   const { id } = useParams();
@@ -180,7 +300,20 @@ export default function SubmissionDetail() {
               <CardTitle className="text-lg">Review Details</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              {submission.extractedOrg && (
+              {submission.scanData && (() => {
+                try {
+                  const scan: ScanData = typeof submission.scanData === "string"
+                    ? JSON.parse(submission.scanData)
+                    : submission.scanData as unknown as ScanData;
+                  return (
+                    <div className="border rounded-lg p-3 bg-muted/20">
+                      <ScanPanel scan={scan} />
+                    </div>
+                  );
+                } catch { return null; }
+              })()}
+
+              {submission.extractedOrg && !submission.scanData && (
                 <div className="bg-primary/5 p-3 rounded-md border border-primary/10">
                   <div className="flex items-center gap-2 text-primary font-medium mb-1">
                     <FileCheck className="h-4 w-4" />

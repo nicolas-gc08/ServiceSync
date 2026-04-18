@@ -25,6 +25,10 @@ export interface Submission {
   extractedOrg: string | null;
   /** @nullable */
   extractedHours: string | null;
+  /** @nullable */
+  scanStatus: string | null;
+  /** @nullable */
+  scanData: string | null;
   createdAt: Date;
   updatedAt: Date;
 }
