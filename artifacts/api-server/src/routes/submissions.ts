@@ -3,7 +3,7 @@ import multer from "multer";
 import path from "path";
 import { randomUUID } from "crypto";
 import { db, submissionsTable } from "@workspace/db";
-import { eq, ilike, or, and } from "drizzle-orm";
+import { eq, ilike, or, and, sql } from "drizzle-orm";
 import {
   CreateSubmissionBody,
   UpdateSubmissionBody,
@@ -13,8 +13,17 @@ import {
 } from "@workspace/api-zod";
 import { sendStatusNotification } from "../lib/email";
 import { scanFile } from "../lib/scan";
+import rateLimit from "express-rate-limit";
 
 const router: IRouter = Router();
+
+const uploadLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many uploads from this device. Please wait 15 minutes before trying again." },
+});
 
 const UPLOADS_DIR = path.resolve(process.cwd(), "uploads");
 
@@ -51,7 +60,7 @@ function generateSubmissionId(): string {
   return `VH-${year}${month}${day}-${rand}`;
 }
 
-router.post("/submissions/upload", upload.single("file"), async (req, res): Promise<void> => {
+router.post("/submissions/upload", uploadLimiter, upload.single("file"), async (req, res): Promise<void> => {
   if (!req.file) {
     res.status(400).json({ error: "No file uploaded" });
     return;
@@ -98,13 +107,21 @@ router.get("/submissions/file/:filename", async (req, res): Promise<void> => {
 });
 
 router.get("/submissions/stats", async (_req, res): Promise<void> => {
-  const all = await db.select().from(submissionsTable);
-  const stats = {
-    total: all.length,
-    pending: all.filter((s) => s.status === "pending").length,
-    approved: all.filter((s) => s.status === "approved").length,
-    rejected: all.filter((s) => s.status === "rejected").length,
-  };
+  const rows = await db
+    .select({
+      status: submissionsTable.status,
+      count: sql<number>`cast(count(*) as int)`,
+    })
+    .from(submissionsTable)
+    .groupBy(submissionsTable.status);
+
+  const stats = { total: 0, pending: 0, approved: 0, rejected: 0 };
+  for (const row of rows) {
+    stats.total += row.count;
+    if (row.status === "pending") stats.pending = row.count;
+    else if (row.status === "approved") stats.approved = row.count;
+    else if (row.status === "rejected") stats.rejected = row.count;
+  }
   res.json(stats);
 });
 

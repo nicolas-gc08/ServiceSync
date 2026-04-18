@@ -6,6 +6,7 @@ import { execFile } from "child_process";
 import { promisify } from "util";
 import os from "os";
 import { randomBytes } from "crypto";
+import pLimit from "p-limit";
 
 const execFileAsync = promisify(execFile);
 const _require = createRequire(import.meta.url);
@@ -17,6 +18,9 @@ const openai = new OpenAI({
   baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
   apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
 });
+
+const SCAN_TIMEOUT_MS = 60_000;
+const scanLimit = pLimit(5);
 
 export interface FieldResult {
   found: boolean;
@@ -202,11 +206,12 @@ async function analyzeWithLLM(content: string, isImage: boolean, mimeType = "ima
     ];
   }
 
-  const response = await openai.chat.completions.create({
-    model: "gpt-5-mini",
-    max_completion_tokens: 2048,
-    messages,
-  });
+  const response = await scanLimit(() =>
+    openai.chat.completions.create(
+      { model: "gpt-5-mini", max_completion_tokens: 2048, messages },
+      { signal: AbortSignal.timeout(SCAN_TIMEOUT_MS) },
+    )
+  );
 
   const raw = response.choices[0]?.message?.content ?? "";
   const cleaned = raw.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "").trim();
