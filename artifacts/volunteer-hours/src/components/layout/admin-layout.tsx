@@ -37,7 +37,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         <div className="container flex h-16 items-center px-4 mx-auto max-w-6xl justify-between">
           <div className="flex items-center gap-2 font-semibold text-primary cursor-pointer" onClick={() => setLocation("/admin")}>
             <ShieldCheck className="h-6 w-6" />
-            <span>Review Portal</span>
+            <span>ServiceSync Review Portal</span>
           </div>
           <div className="flex items-center gap-4">
             <span className="text-sm text-muted-foreground hidden sm:inline-block">
