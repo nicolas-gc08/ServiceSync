@@ -290,14 +290,14 @@ export async function scanFile(filePath: string): Promise<ScanResult> {
       }
 
       return {
-        status: "failed",
-        message: "The document could not be read. Please upload a clearer scan, image, or text-based PDF.",
+        status: "error",
+        message: "The document scan could not process this PDF. Your submission will be accepted and reviewed manually.",
         isCorrectTemplate: false,
         isLegible: false,
         fields: EMPTY_FIELDS,
         entries: [],
         warnings: [],
-        errors: ["The document could not be read. Please upload a clearer scan, image, or text-based PDF."],
+        errors: [],
       };
     }
   } catch (err) {
