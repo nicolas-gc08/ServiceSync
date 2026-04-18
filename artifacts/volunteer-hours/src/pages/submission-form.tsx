@@ -434,7 +434,7 @@ export default function SubmissionForm() {
     <div className="min-h-[100dvh] flex items-center justify-center bg-gray-50/50 p-4 py-12">
       <Card className="w-full max-w-xl shadow-lg">
         <CardHeader className="space-y-1">
-          <CardTitle className="text-2xl font-bold tracking-tight text-primary">Volunteer Hours</CardTitle>
+          <CardTitle className="text-2xl font-bold tracking-tight text-primary">Service Hour Portal</CardTitle>
           <CardDescription>Submit your community service hours for faculty review.</CardDescription>
         </CardHeader>
         <CardContent>
