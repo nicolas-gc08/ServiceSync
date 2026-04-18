@@ -59,27 +59,78 @@ interface ScanData {
   errors: string[];
 }
 
-const FIELD_LABELS: Record<keyof ScanData["fields"], string> = {
-  studentName: "Student Name",
-  studentNumber: "Student Number",
-  graduationYear: "Graduation Year",
-  schoolName: "School Name",
-  schoolYear: "School Year",
-  gradeLevel: "Grade Level",
-  organization: "Organization Name",
-  totalHoursVolunteered: "Total Hours",
-};
+const CRITICAL_HEADER_FIELDS: Array<[keyof ScanData["fields"], string]> = [
+  ["studentName", "Student name"],
+  ["studentNumber", "Student number"],
+  ["totalHoursVolunteered", "Total hours worked"],
+];
+
+const MINOR_HEADER_FIELDS: Array<[keyof ScanData["fields"], string]> = [
+  ["graduationYear", "Graduation year"],
+  ["schoolName", "School name"],
+  ["schoolYear", "School year"],
+  ["gradeLevel", "Grade level"],
+  ["organization", "Organization name"],
+];
+
+function entryIssues(entry: ScanData["entries"][number]): { critical: string[]; minor: string[] } {
+  const critical: string[] = [];
+  const minor: string[] = [];
+  if (!entry.activity) critical.push("Activity");
+  if (!entry.contactName) critical.push("Contact");
+  if (!entry.date) minor.push("Date");
+  if (!entry.timeIn) minor.push("Time In");
+  if (!entry.timeOut) minor.push("Time Out");
+  if (!entry.hours) minor.push("Hours");
+  if (!entry.hasSignature) minor.push("Signature");
+  return { critical, minor };
+}
 
 function ScanPanel({ scan }: { scan: ScanData }) {
-  const isFailed = scan.status === "failed" || scan.status === "error";
-  const isWarning = scan.status === "warnings";
-  const isPassed = scan.status === "passed";
+  const criticalIssues: string[] = [];
+  const minorIssues: string[] = [];
 
-  const statusBadge = isFailed
-    ? <Badge variant="destructive">Failed</Badge>
-    : isWarning
-      ? <Badge className="bg-amber-100 text-amber-800 hover:bg-amber-100">Warnings</Badge>
-      : <Badge className="bg-green-100 text-green-800 hover:bg-green-100">Passed</Badge>;
+  if (!scan.isCorrectTemplate) {
+    criticalIssues.push("Document does not appear to be the correct volunteer log template");
+  } else if (!scan.isLegible) {
+    criticalIssues.push("Document is not legible — unable to read fields");
+  } else {
+    for (const [key, label] of CRITICAL_HEADER_FIELDS) {
+      if (!scan.fields[key]?.found) criticalIssues.push(`${label} not detected`);
+    }
+    for (const [key, label] of MINOR_HEADER_FIELDS) {
+      if (!scan.fields[key]?.found) minorIssues.push(`${label} not detected`);
+    }
+
+    const missingActivity = scan.entries.filter(e => !e.activity).length;
+    const missingContact = scan.entries.filter(e => !e.contactName).length;
+    if (missingActivity > 0) criticalIssues.push(`Activity missing on ${missingActivity} log entr${missingActivity === 1 ? "y" : "ies"}`);
+    if (missingContact > 0) criticalIssues.push(`Contact missing on ${missingContact} log entr${missingContact === 1 ? "y" : "ies"}`);
+
+    const missingDate = scan.entries.filter(e => !e.date).length;
+    const missingTimeIn = scan.entries.filter(e => !e.timeIn).length;
+    const missingTimeOut = scan.entries.filter(e => !e.timeOut).length;
+    const missingHours = scan.entries.filter(e => !e.hours).length;
+    const missingSignature = scan.entries.filter(e => !e.hasSignature).length;
+    if (missingDate > 0) minorIssues.push(`Date missing on ${missingDate} entr${missingDate === 1 ? "y" : "ies"}`);
+    if (missingTimeIn > 0) minorIssues.push(`Time In missing on ${missingTimeIn} entr${missingTimeIn === 1 ? "y" : "ies"}`);
+    if (missingTimeOut > 0) minorIssues.push(`Time Out missing on ${missingTimeOut} entr${missingTimeOut === 1 ? "y" : "ies"}`);
+    if (missingHours > 0) minorIssues.push(`Hours missing on ${missingHours} entr${missingHours === 1 ? "y" : "ies"}`);
+    if (missingSignature > 0) minorIssues.push(`Signature missing on ${missingSignature} entr${missingSignature === 1 ? "y" : "ies"}`);
+
+    scan.warnings.forEach(w => minorIssues.push(w));
+    scan.errors.forEach(e => minorIssues.push(e));
+  }
+
+  const hasCritical = criticalIssues.length > 0;
+  const hasMinor = minorIssues.length > 0;
+  const isAllGood = !hasCritical && !hasMinor;
+
+  const overallBadge = hasCritical
+    ? <Badge variant="destructive">Critical Issues</Badge>
+    : hasMinor
+      ? <Badge className="bg-amber-100 text-amber-800 hover:bg-amber-100">Minor Issues</Badge>
+      : <Badge className="bg-green-100 text-green-800 hover:bg-green-100">All Good</Badge>;
 
   return (
     <div className="space-y-3">
@@ -88,65 +139,80 @@ function ScanPanel({ scan }: { scan: ScanData }) {
           <ScanLine className="h-4 w-4 text-primary" />
           <span>Document Scan</span>
         </div>
-        {statusBadge}
+        {overallBadge}
       </div>
 
-      {scan.errors.length > 0 && (
-        <ul className="space-y-1">
-          {scan.errors.map((e, i) => (
-            <li key={i} className="flex items-start gap-2 text-xs text-red-700 bg-red-50 rounded px-2 py-1">
-              <AlertCircle className="h-3 w-3 mt-0.5 shrink-0" />{e}
-            </li>
-          ))}
-        </ul>
-      )}
-
-      {scan.warnings.length > 0 && (
-        <ul className="space-y-1">
-          {scan.warnings.map((w, i) => (
-            <li key={i} className="flex items-start gap-2 text-xs text-amber-700 bg-amber-50 rounded px-2 py-1">
-              <AlertTriangle className="h-3 w-3 mt-0.5 shrink-0" />{w}
-            </li>
-          ))}
-        </ul>
-      )}
-
-      {scan.isCorrectTemplate && scan.isLegible && (
-        <div className="space-y-1">
-          <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide">Fields</p>
-          <div className="grid grid-cols-2 gap-1">
-            {(Object.entries(scan.fields) as [keyof typeof scan.fields, FieldResult][]).map(([key, field]) => (
-              <div key={key} className="flex items-center gap-1.5 text-xs">
-                {field.found
-                  ? <Check className="h-3 w-3 text-green-600 shrink-0" />
-                  : <X className="h-3 w-3 text-red-400 shrink-0" />}
-                <span className={field.found ? "" : "text-muted-foreground"}>{FIELD_LABELS[key]}</span>
-              </div>
-            ))}
-          </div>
+      {isAllGood && (
+        <div className="flex items-center gap-2 text-xs text-green-700 bg-green-50 border border-green-200 rounded px-3 py-2">
+          <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
+          <span>No issues detected — all required fields present.</span>
         </div>
       )}
 
-      {scan.entries && scan.entries.length > 0 && (
+      {hasCritical && (
+        <div className="space-y-1">
+          <p className="text-xs font-semibold text-red-700 uppercase tracking-wide">Critical</p>
+          <ul className="space-y-1">
+            {criticalIssues.map((issue, i) => (
+              <li key={i} className="flex items-start gap-2 text-xs text-red-700 bg-red-50 border border-red-200 rounded px-2 py-1.5">
+                <AlertCircle className="h-3 w-3 mt-0.5 shrink-0" />{issue}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {hasMinor && (
+        <div className="space-y-1">
+          <p className="text-xs font-semibold text-amber-700 uppercase tracking-wide">Minor Issues</p>
+          <ul className="space-y-1">
+            {minorIssues.map((issue, i) => (
+              <li key={i} className="flex items-start gap-2 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1.5">
+                <AlertTriangle className="h-3 w-3 mt-0.5 shrink-0" />{issue}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {scan.isCorrectTemplate && scan.isLegible && scan.entries && scan.entries.length > 0 && (
         <div className="space-y-1">
           <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide">
             Log Entries ({scan.entries.length})
           </p>
           <div className="space-y-1.5 max-h-64 overflow-y-auto">
-            {scan.entries.map((entry, i) => (
-              <div key={i} className="text-xs bg-muted/50 rounded px-2 py-1.5 space-y-0.5">
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-muted-foreground">{entry.date ?? "—"}</span>
-                  <div className="flex items-center gap-2">
-                    <span className="font-medium">{entry.hours ?? "—"}h</span>
-                    <span className={entry.hasSignature ? "text-green-600" : "text-red-400"}>
-                      {entry.hasSignature ? "Signed" : "No sig"}
+            {scan.entries.map((entry, i) => {
+              const { critical, minor } = entryIssues(entry);
+              const rowColor = critical.length > 0
+                ? "bg-red-50 border border-red-200"
+                : minor.length > 0
+                  ? "bg-amber-50 border border-amber-200"
+                  : "bg-green-50 border border-green-200";
+              return (
+                <div key={i} className={`text-xs rounded px-2 py-1.5 space-y-0.5 ${rowColor}`}>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className={entry.date ? "text-muted-foreground" : "text-amber-600 font-medium"}>
+                      {entry.date ?? "No date"}
                     </span>
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium">{entry.hours ?? "—"}h</span>
+                      <span className={entry.hasSignature ? "text-green-600" : "text-amber-600"}>
+                        {entry.hasSignature ? "Signed" : "No sig"}
+                      </span>
+                    </div>
                   </div>
+                  <div className={`break-words whitespace-normal ${entry.activity ? "text-foreground/80" : "text-red-600 font-medium"}`}>
+                    {entry.activity ?? "No activity"}
+                  </div>
+                  {entry.contactName && (
+                    <div className="text-muted-foreground">{entry.contactName}</div>
+                  )}
+                  {!entry.contactName && (
+                    <div className="text-red-600 font-medium">No contact</div>
+                  )}
                 </div>
-                <div className="text-foreground/80 break-words whitespace-normal">{entry.activity ?? "—"}</div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}
