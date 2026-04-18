@@ -14,6 +14,7 @@ import {
 import { sendStatusNotification } from "../lib/email";
 import { scanFile } from "../lib/scan";
 import rateLimit from "express-rate-limit";
+import { requireAdmin } from "../lib/auth-middleware";
 
 const router: IRouter = Router();
 
@@ -106,7 +107,7 @@ router.get("/submissions/file/:filename", async (req, res): Promise<void> => {
   });
 });
 
-router.get("/submissions/stats", async (_req, res): Promise<void> => {
+router.get("/submissions/stats", requireAdmin, async (_req, res): Promise<void> => {
   const rows = await db
     .select({
       status: submissionsTable.status,
@@ -129,7 +130,7 @@ router.get("/submissions/upload-token", async (_req, res): Promise<void> => {
   res.json({ fileUrl: "", fileName: "" });
 });
 
-router.get("/submissions", async (req, res): Promise<void> => {
+router.get("/submissions", requireAdmin, async (req, res): Promise<void> => {
   const queryResult = ListSubmissionsQueryParams.safeParse(req.query);
   const search = queryResult.success ? queryResult.data.search : undefined;
   const status = queryResult.success ? queryResult.data.status : undefined;
@@ -192,7 +193,7 @@ router.post("/submissions", async (req, res): Promise<void> => {
   res.status(201).json(submission);
 });
 
-router.get("/submissions/:id", async (req, res): Promise<void> => {
+router.get("/submissions/:id", requireAdmin, async (req, res): Promise<void> => {
   const paramsResult = GetSubmissionParams.safeParse(req.params);
   if (!paramsResult.success) {
     res.status(400).json({ error: "Invalid submission ID" });
@@ -212,7 +213,7 @@ router.get("/submissions/:id", async (req, res): Promise<void> => {
   res.json(submission);
 });
 
-router.delete("/submissions/:id", async (req, res): Promise<void> => {
+router.delete("/submissions/:id", requireAdmin, async (req, res): Promise<void> => {
   const paramsResult = GetSubmissionParams.safeParse(req.params);
   if (!paramsResult.success) {
     res.status(400).json({ error: "Invalid submission ID" });
@@ -232,7 +233,7 @@ router.delete("/submissions/:id", async (req, res): Promise<void> => {
   res.status(204).end();
 });
 
-router.patch("/submissions/:id", async (req, res): Promise<void> => {
+router.patch("/submissions/:id", requireAdmin, async (req, res): Promise<void> => {
   const paramsResult = UpdateSubmissionParams.safeParse(req.params);
   if (!paramsResult.success) {
     res.status(400).json({ error: "Invalid submission ID" });
