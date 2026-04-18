@@ -19,7 +19,7 @@ const openai = new OpenAI({
   apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
 });
 
-const SCAN_TIMEOUT_MS = 60_000;
+const SCAN_TIMEOUT_MS = 120_000;
 const scanLimit = pLimit(5);
 
 export interface FieldResult {
