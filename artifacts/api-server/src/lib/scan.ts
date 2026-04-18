@@ -250,33 +250,32 @@ export async function scanFile(filePath: string): Promise<ScanResult> {
       const base64 = buffer.toString("base64");
       return await analyzeWithLLM(base64, true);
     } else {
-      // Try text extraction first (works for digital/text-based PDFs)
-      let text = "";
-      try {
-        text = await extractPdfText(filePath);
-      } catch {
-        // pdf-parse failed — fall through to image conversion
-      }
-
-      if (isTextUsable(text)) {
-        // Clean text-based PDF — analyze as text
-        return await analyzeWithLLM(text, false);
-      }
-
-      // Scanned PDF or garbled text — convert to image and use vision model.
+      // For PDFs: always try image conversion first — the vision model reads
+      // handwriting and scanned forms far more accurately than text extraction,
+      // which can silently garble values (e.g. "11" → "ii").
       const imagePath = await convertScannedPdfToImage(filePath);
       if (imagePath) {
         try {
           const buffer = await fs.readFile(imagePath);
           const base64 = buffer.toString("base64");
-          const result = await analyzeWithLLM(base64, true);
-          return result;
+          return await analyzeWithLLM(base64, true);
         } finally {
           fs.unlink(imagePath).catch(() => {});
         }
       }
 
-      // pdftoppm failed too — give a clear error
+      // pdftoppm unavailable — fall back to text extraction for digital PDFs.
+      let text = "";
+      try {
+        text = await extractPdfText(filePath);
+      } catch {
+        // pdf-parse also failed
+      }
+
+      if (isTextUsable(text)) {
+        return await analyzeWithLLM(text, false);
+      }
+
       return {
         status: "failed",
         message: "The document could not be read. Please upload a clearer scan, image, or text-based PDF.",
