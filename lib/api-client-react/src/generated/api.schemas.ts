@@ -8,3 +8,111 @@
 export interface HealthStatus {
   status: string;
 }
+
+export interface ErrorResponse {
+  error: string;
+}
+
+export interface MessageResponse {
+  message: string;
+}
+
+export interface LoginRequest {
+  username: string;
+  password: string;
+}
+
+export interface LoginResponse {
+  success: boolean;
+  username: string;
+}
+
+export interface AuthStatus {
+  authenticated: boolean;
+  /** @nullable */
+  username: string | null;
+}
+
+export interface FileUploadResponse {
+  fileUrl: string;
+  fileName: string;
+}
+
+export type SubmissionStatus =
+  (typeof SubmissionStatus)[keyof typeof SubmissionStatus];
+
+export const SubmissionStatus = {
+  pending: "pending",
+  approved: "approved",
+  rejected: "rejected",
+} as const;
+
+export interface Submission {
+  id: number;
+  submissionId: string;
+  firstName: string;
+  lastName: string;
+  studentId: string;
+  graduationYear: number;
+  /** @nullable */
+  email: string | null;
+  fileUrl: string;
+  fileName: string;
+  status: SubmissionStatus;
+  /** @nullable */
+  notes: string | null;
+  /** @nullable */
+  extractedOrg: string | null;
+  /** @nullable */
+  extractedHours: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SubmissionInput {
+  firstName: string;
+  lastName: string;
+  studentId: string;
+  graduationYear: number;
+  /** @nullable */
+  email?: string | null;
+  fileUrl: string;
+  fileName: string;
+}
+
+export type SubmissionUpdateStatus =
+  (typeof SubmissionUpdateStatus)[keyof typeof SubmissionUpdateStatus];
+
+export const SubmissionUpdateStatus = {
+  pending: "pending",
+  approved: "approved",
+  rejected: "rejected",
+} as const;
+
+export interface SubmissionUpdate {
+  status?: SubmissionUpdateStatus;
+  /** @nullable */
+  notes?: string | null;
+}
+
+export interface SubmissionStats {
+  total: number;
+  pending: number;
+  approved: number;
+  rejected: number;
+}
+
+export type ListSubmissionsParams = {
+  search?: string;
+  status?: ListSubmissionsStatus;
+};
+
+export type ListSubmissionsStatus =
+  (typeof ListSubmissionsStatus)[keyof typeof ListSubmissionsStatus];
+
+export const ListSubmissionsStatus = {
+  pending: "pending",
+  approved: "approved",
+  rejected: "rejected",
+  all: "all",
+} as const;

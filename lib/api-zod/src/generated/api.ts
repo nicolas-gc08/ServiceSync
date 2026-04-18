@@ -14,3 +14,144 @@ import * as zod from "zod";
 export const HealthCheckResponse = zod.object({
   status: zod.string(),
 });
+
+/**
+ * @summary Admin login
+ */
+export const AdminLoginBody = zod.object({
+  username: zod.string(),
+  password: zod.string(),
+});
+
+export const AdminLoginResponse = zod.object({
+  success: zod.boolean(),
+  username: zod.string(),
+});
+
+/**
+ * @summary Admin logout
+ */
+export const AdminLogoutResponse = zod.object({
+  message: zod.string(),
+});
+
+/**
+ * @summary Get current auth status
+ */
+export const GetAuthStatusResponse = zod.object({
+  authenticated: zod.boolean(),
+  username: zod.string().nullable(),
+});
+
+/**
+ * @summary List all submissions
+ */
+export const ListSubmissionsQueryParams = zod.object({
+  search: zod.coerce.string().optional(),
+  status: zod.enum(["pending", "approved", "rejected", "all"]).optional(),
+});
+
+export const ListSubmissionsResponseItem = zod.object({
+  id: zod.number(),
+  submissionId: zod.string(),
+  firstName: zod.string(),
+  lastName: zod.string(),
+  studentId: zod.string(),
+  graduationYear: zod.number(),
+  email: zod.string().nullable(),
+  fileUrl: zod.string(),
+  fileName: zod.string(),
+  status: zod.enum(["pending", "approved", "rejected"]),
+  notes: zod.string().nullable(),
+  extractedOrg: zod.string().nullable(),
+  extractedHours: zod.string().nullable(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+export const ListSubmissionsResponse = zod.array(ListSubmissionsResponseItem);
+
+/**
+ * @summary Create a new submission (multipart form)
+ */
+export const CreateSubmissionBody = zod.object({
+  firstName: zod.string(),
+  lastName: zod.string(),
+  studentId: zod.string(),
+  graduationYear: zod.number(),
+  email: zod.string().nullish(),
+  fileUrl: zod.string(),
+  fileName: zod.string(),
+});
+
+/**
+ * @summary Get submission statistics
+ */
+export const GetSubmissionStatsResponse = zod.object({
+  total: zod.number(),
+  pending: zod.number(),
+  approved: zod.number(),
+  rejected: zod.number(),
+});
+
+/**
+ * @summary Get a single submission
+ */
+export const GetSubmissionParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const GetSubmissionResponse = zod.object({
+  id: zod.number(),
+  submissionId: zod.string(),
+  firstName: zod.string(),
+  lastName: zod.string(),
+  studentId: zod.string(),
+  graduationYear: zod.number(),
+  email: zod.string().nullable(),
+  fileUrl: zod.string(),
+  fileName: zod.string(),
+  status: zod.enum(["pending", "approved", "rejected"]),
+  notes: zod.string().nullable(),
+  extractedOrg: zod.string().nullable(),
+  extractedHours: zod.string().nullable(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+
+/**
+ * @summary Update submission status or notes
+ */
+export const UpdateSubmissionParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const UpdateSubmissionBody = zod.object({
+  status: zod.enum(["pending", "approved", "rejected"]).optional(),
+  notes: zod.string().nullish(),
+});
+
+export const UpdateSubmissionResponse = zod.object({
+  id: zod.number(),
+  submissionId: zod.string(),
+  firstName: zod.string(),
+  lastName: zod.string(),
+  studentId: zod.string(),
+  graduationYear: zod.number(),
+  email: zod.string().nullable(),
+  fileUrl: zod.string(),
+  fileName: zod.string(),
+  status: zod.enum(["pending", "approved", "rejected"]),
+  notes: zod.string().nullable(),
+  extractedOrg: zod.string().nullable(),
+  extractedHours: zod.string().nullable(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+});
+
+/**
+ * @summary Get an upload URL/token for file upload
+ */
+export const GetUploadTokenResponse = zod.object({
+  fileUrl: zod.string(),
+  fileName: zod.string(),
+});

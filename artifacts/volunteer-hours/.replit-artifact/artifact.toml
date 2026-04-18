@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/"
+title = "Volunteer Hours System"
+version = "1.0.0"
+id = "artifacts/volunteer-hours"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 18164
+
+[services.development]
+run = "pnpm --filter @workspace/volunteer-hours run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/volunteer-hours", "run", "build" ]
+publicDir = "artifacts/volunteer-hours/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "18164"
+BASE_PATH = "/"
