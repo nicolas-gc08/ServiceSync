@@ -292,7 +292,7 @@ export default function SubmissionDetail() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
         <div className="space-y-6">
           <Card>
             <CardHeader>
@@ -405,7 +405,7 @@ export default function SubmissionDetail() {
           </Card>
         </div>
 
-        <div className="lg:col-span-2">
+        <div className="lg:col-span-3">
           <Card className="h-[calc(100vh-12rem)] flex flex-col overflow-hidden">
             <CardHeader className="py-3 px-4 border-b bg-muted/30">
               <CardTitle className="text-sm font-medium flex items-center justify-between">
