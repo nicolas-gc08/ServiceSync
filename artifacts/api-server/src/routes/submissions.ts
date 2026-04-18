@@ -168,10 +168,6 @@ router.get("/submissions/stats", requireAdmin, async (_req, res): Promise<void> 
   res.json(stats);
 });
 
-router.get("/submissions/upload-token", async (_req, res): Promise<void> => {
-  res.json({ fileUrl: "", fileName: "" });
-});
-
 router.get("/submissions", requireAdmin, async (req, res): Promise<void> => {
   const queryResult = ListSubmissionsQueryParams.safeParse(req.query);
   const search = queryResult.success ? queryResult.data.search : undefined;

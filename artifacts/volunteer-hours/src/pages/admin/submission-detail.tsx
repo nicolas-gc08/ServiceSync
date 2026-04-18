@@ -320,6 +320,7 @@ export default function SubmissionDetail() {
   };
 
   const setStatusAndSave = async (newStatus: SubmissionUpdateStatus) => {
+    const prevStatus = status;
     setStatus(newStatus);
     try {
       await updateSubmission.mutateAsync({
@@ -338,6 +339,7 @@ export default function SubmissionDetail() {
         description: `Submission marked as ${newStatus}.`,
       });
     } catch (error) {
+      setStatus(prevStatus);
       toast({
         title: "Update failed",
         description: "There was an error updating the submission.",

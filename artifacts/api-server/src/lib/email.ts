@@ -80,7 +80,7 @@ export async function sendStatusNotification({
           </tr>
           <tr>
             <td style="padding: 24px 24px 8px;">
-              <p style="margin: 0; font-size: 15px; color: #111827;">Hello ${studentName},</p>
+              <p style="margin: 0; font-size: 15px; color: #111827;">Hello ${escapeHtml(studentName)},</p>
             </td>
           </tr>
           <tr>
