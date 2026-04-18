@@ -104,7 +104,7 @@ router.post("/submissions/upload", uploadLimiter, upload.single("file"), async (
   const localPath = path.join(UPLOADS_DIR, req.file.filename);
   let fileUrl: string;
   try {
-    const objectName = await uploadFileToStorage(localPath, req.file.originalname);
+    const objectName = await uploadFileToStorage(localPath, req.file.originalname, req.file.mimetype);
     fileUrl = `/api/submissions/file/${encodeURIComponent(objectName)}`;
   } catch (err) {
     console.error("GCS upload failed:", err);

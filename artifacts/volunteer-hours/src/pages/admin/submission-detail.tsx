@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useParams, useLocation } from "wouter";
 import { format } from "date-fns";
-import { Loader2, ArrowLeft, FileCheck, Check, X, Save, AlertCircle, AlertTriangle, CheckCircle2, ScanLine, Trash2, RotateCw } from "lucide-react";
+import { Loader2, ArrowLeft, FileCheck, Check, X, Save, AlertCircle, AlertTriangle, CheckCircle2, ScanLine, Trash2, RotateCcw } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { 
   useGetSubmission, 
@@ -495,11 +495,11 @@ export default function SubmissionDetail() {
                       </span>
                       {isImage && (
                         <button
-                          onClick={() => setImageRotation(r => ((r + 90) % 360) as 0 | 90 | 180 | 270)}
+                          onClick={() => setImageRotation(r => ((r - 90 + 360) % 360) as 0 | 90 | 180 | 270)}
                           className="flex items-center gap-1 text-xs font-normal text-muted-foreground hover:text-foreground transition-colors"
-                          title="Rotate 90°"
+                          title="Rotate 90° counterclockwise"
                         >
-                          <RotateCw className="h-3.5 w-3.5" />
+                          <RotateCcw className="h-3.5 w-3.5" />
                           Rotate
                         </button>
                       )}

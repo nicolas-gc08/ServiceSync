@@ -28,14 +28,24 @@ function getBucket() {
 
 export async function uploadFileToStorage(
   localPath: string,
-  originalName: string
+  originalName: string,
+  mimeType?: string
 ): Promise<string> {
-  const ext = path.extname(originalName);
+  const ext = path.extname(originalName).toLowerCase();
   const objectName = `submissions/${randomUUID()}${ext}`;
+  const MIME_MAP: Record<string, string> = {
+    ".pdf": "application/pdf",
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".png": "image/png",
+    ".webp": "image/webp",
+    ".gif": "image/gif",
+  };
+  const contentType = mimeType || MIME_MAP[ext] || "application/octet-stream";
   const bucket = getBucket();
   await bucket.upload(localPath, {
     destination: objectName,
-    metadata: { cacheControl: "private, max-age=3600" },
+    metadata: { cacheControl: "private, max-age=3600", contentType },
   });
   return objectName;
 }
