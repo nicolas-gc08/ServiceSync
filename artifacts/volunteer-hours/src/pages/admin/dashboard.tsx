@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useLocation } from "wouter";
 import { format } from "date-fns";
 import { Search, FileText, CheckCircle2, XCircle, Clock } from "lucide-react";
@@ -14,12 +14,22 @@ export default function AdminDashboard() {
   const [, setLocation] = useLocation();
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState<ListSubmissionsStatus | "all">("all");
+  const [graduationYear, setGraduationYear] = useState<string>("all");
 
   const { data: stats, isLoading: isLoadingStats } = useGetSubmissionStats();
-  
+
+  const { data: allSubmissions } = useListSubmissions({});
+
+  const availableYears = useMemo(() => {
+    if (!allSubmissions) return [];
+    const years = [...new Set(allSubmissions.map((s) => s.graduationYear))].sort((a, b) => a - b);
+    return years;
+  }, [allSubmissions]);
+
   const { data: submissions, isLoading: isLoadingSubmissions } = useListSubmissions({
     search: search.length > 2 ? search : undefined,
-    status: status !== "all" ? status : undefined
+    status: status !== "all" ? status : undefined,
+    graduationYear: graduationYear !== "all" ? Number(graduationYear) : undefined,
   });
 
   const getStatusBadge = (status: string) => {
@@ -81,8 +91,8 @@ export default function AdminDashboard() {
           <CardTitle>Submissions</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="flex flex-col sm:flex-row gap-4 mb-6">
-            <div className="relative flex-1 max-w-sm">
+          <div className="flex flex-col sm:flex-row gap-3 mb-6 flex-wrap">
+            <div className="relative flex-1 min-w-[200px] max-w-sm">
               <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input
                 type="search"
@@ -93,7 +103,7 @@ export default function AdminDashboard() {
               />
             </div>
             <Select value={status} onValueChange={(val) => setStatus(val as any)}>
-              <SelectTrigger className="w-[180px]">
+              <SelectTrigger className="w-[160px]">
                 <SelectValue placeholder="Filter by status" />
               </SelectTrigger>
               <SelectContent>
@@ -101,6 +111,19 @@ export default function AdminDashboard() {
                 <SelectItem value="pending">Pending</SelectItem>
                 <SelectItem value="approved">Approved</SelectItem>
                 <SelectItem value="rejected">Rejected</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={graduationYear} onValueChange={setGraduationYear}>
+              <SelectTrigger className="w-[160px]">
+                <SelectValue placeholder="Filter by class" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Classes</SelectItem>
+                {availableYears.map((year) => (
+                  <SelectItem key={year} value={String(year)}>
+                    Class of {year}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
@@ -135,14 +158,14 @@ export default function AdminDashboard() {
                   </TableRow>
                 ) : (
                   submissions?.map((sub) => (
-                    <TableRow 
-                      key={sub.id} 
+                    <TableRow
+                      key={sub.id}
                       className="cursor-pointer hover:bg-muted/50 transition-colors"
                       onClick={() => setLocation(`/admin/submissions/${sub.id}`)}
                     >
                       <TableCell className="font-medium">{sub.lastName}, {sub.firstName}</TableCell>
                       <TableCell className="text-muted-foreground">{sub.studentId}</TableCell>
-                      <TableCell>{sub.graduationYear}</TableCell>
+                      <TableCell>Class of {sub.graduationYear}</TableCell>
                       <TableCell className="text-muted-foreground">{format(new Date(sub.createdAt), "MMM d, yyyy")}</TableCell>
                       <TableCell>{getStatusBadge(sub.status)}</TableCell>
                     </TableRow>

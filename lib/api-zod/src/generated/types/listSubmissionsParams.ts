@@ -10,4 +10,5 @@ import type { ListSubmissionsStatus } from "./listSubmissionsStatus";
 export type ListSubmissionsParams = {
   search?: string;
   status?: ListSubmissionsStatus;
+  graduationYear?: number;
 };

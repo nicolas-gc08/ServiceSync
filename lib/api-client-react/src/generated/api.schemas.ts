@@ -113,6 +113,7 @@ export interface SubmissionStats {
 export type ListSubmissionsParams = {
   search?: string;
   status?: ListSubmissionsStatus;
+  graduationYear?: number;
 };
 
 export type ListSubmissionsStatus =

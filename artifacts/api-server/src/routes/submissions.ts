@@ -3,7 +3,7 @@ import multer from "multer";
 import path from "path";
 import { randomUUID } from "crypto";
 import { db, submissionsTable } from "@workspace/db";
-import { eq, ilike, or } from "drizzle-orm";
+import { eq, ilike, or, and } from "drizzle-orm";
 import {
   CreateSubmissionBody,
   UpdateSubmissionBody,
@@ -116,8 +116,7 @@ router.get("/submissions", async (req, res): Promise<void> => {
   const queryResult = ListSubmissionsQueryParams.safeParse(req.query);
   const search = queryResult.success ? queryResult.data.search : undefined;
   const status = queryResult.success ? queryResult.data.status : undefined;
-
-  let query = db.select().from(submissionsTable).$dynamic();
+  const graduationYear = queryResult.success ? (queryResult.data as any).graduationYear : undefined;
 
   const conditions = [];
 
@@ -130,12 +129,16 @@ router.get("/submissions", async (req, res): Promise<void> => {
     conditions.push(eq(submissionsTable.status, status));
   }
 
+  if (graduationYear) {
+    conditions.push(eq(submissionsTable.graduationYear, Number(graduationYear)));
+  }
+
   const results =
     conditions.length > 0
       ? await db
           .select()
           .from(submissionsTable)
-          .where(conditions.length === 1 ? conditions[0] : conditions.reduce((a, b) => (a && b) as any))
+          .where(conditions.length === 1 ? conditions[0] : and(...conditions))
           .orderBy(submissionsTable.lastName)
       : await db.select().from(submissionsTable).orderBy(submissionsTable.lastName);
 

@@ -49,6 +49,7 @@ export const GetAuthStatusResponse = zod.object({
 export const ListSubmissionsQueryParams = zod.object({
   search: zod.coerce.string().optional(),
   status: zod.enum(["pending", "approved", "rejected", "all"]).optional(),
+  graduationYear: zod.coerce.number().optional(),
 });
 
 export const ListSubmissionsResponseItem = zod.object({

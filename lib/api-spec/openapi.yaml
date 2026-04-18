@@ -97,6 +97,11 @@ paths:
           schema:
             type: string
             enum: [pending, approved, rejected, all]
+        - name: graduationYear
+          in: query
+          required: false
+          schema:
+            type: integer
       responses:
         "200":
           description: List of submissions
