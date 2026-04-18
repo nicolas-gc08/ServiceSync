@@ -16,7 +16,7 @@ A full-stack web application for managing student volunteer hours submissions at
 - **API codegen**: Orval (from OpenAPI spec)
 - **Frontend**: React + Vite + TanStack Query + Wouter
 - **UI components**: shadcn/ui + Tailwind CSS
-- **File uploads**: Multer (stored in `artifacts/api-server/uploads/`)
+- **File uploads**: Multer (received on server) → streamed to **Replit Object Storage (GCS)** — files persist across container restarts
 - **Auth**: Simple cookie-based session (no external auth service)
 
 ## Architecture
@@ -96,5 +96,5 @@ Uploaded documents are automatically scanned using AI (OpenAI via Replit AI Inte
 - `GET /api/submissions/stats` — Stats summary
 - `GET /api/submissions/:id` — Get submission
 - `PATCH /api/submissions/:id` — Update status/notes
-- `POST /api/submissions/upload` — Upload file (multipart/form-data)
-- `GET /api/submissions/file/:filename` — Serve uploaded file
+- `POST /api/submissions/upload` — Upload file (multipart/form-data); scanned then stored to GCS
+- `GET /api/submissions/file/:objectPath` — Stream uploaded file from GCS object storage

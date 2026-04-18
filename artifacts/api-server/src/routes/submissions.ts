@@ -15,6 +15,8 @@ import { sendStatusNotification } from "../lib/email";
 import { scanFile } from "../lib/scan";
 import rateLimit from "express-rate-limit";
 import { requireAdmin } from "../lib/auth-middleware";
+import { uploadFileToStorage, streamFileFromStorage } from "../lib/storage";
+import fsSync from "fs";
 
 const router: IRouter = Router();
 
@@ -67,44 +69,50 @@ router.post("/submissions/upload", uploadLimiter, upload.single("file"), async (
     return;
   }
 
-  const fileUrl = `/api/submissions/file/${req.file.filename}`;
-  const filePath = path.join(UPLOADS_DIR, req.file.filename);
-
+  const localPath = path.join(UPLOADS_DIR, req.file.filename);
   let scanStatus: string = "error";
   let scanData: string | null = null;
 
   try {
-    const result = await scanFile(filePath);
+    const result = await scanFile(localPath);
     scanStatus = result.status;
     scanData = JSON.stringify(result);
   } catch (err) {
     console.error("Scan failed:", err);
   }
 
+  let fileUrl: string;
+  try {
+    const objectName = await uploadFileToStorage(localPath, req.file.originalname);
+    fileUrl = `/api/submissions/file/${encodeURIComponent(objectName)}`;
+  } catch (err) {
+    console.error("GCS upload failed:", err);
+    res.status(500).json({ error: "File storage failed. Please try again." });
+    return;
+  } finally {
+    fsSync.unlink(localPath, () => {});
+  }
+
   res.json({ fileUrl, fileName: req.file.originalname, scanStatus, scanData });
 });
 
-router.get("/submissions/file/:filename", async (req, res): Promise<void> => {
-  const raw = Array.isArray(req.params.filename) ? req.params.filename[0] : req.params.filename;
-  const filePath = path.join(UPLOADS_DIR, raw);
-  const ext = path.extname(raw).toLowerCase();
-  const mimeTypes: Record<string, string> = {
-    ".pdf": "application/pdf",
-    ".jpg": "image/jpeg",
-    ".jpeg": "image/jpeg",
-    ".png": "image/png",
-    ".webp": "image/webp",
-    ".gif": "image/gif",
-  };
-  const contentType = mimeTypes[ext] ?? "application/octet-stream";
-  res.setHeader("Content-Type", contentType);
-  res.setHeader("Content-Disposition", "inline");
-  res.setHeader("X-Frame-Options", "SAMEORIGIN");
-  res.sendFile(filePath, { root: "/" }, (err) => {
-    if (err) {
-      res.status(404).json({ error: "File not found" });
-    }
-  });
+router.get("/submissions/file/:objectPath", async (req, res): Promise<void> => {
+  const objectName = decodeURIComponent(req.params.objectPath || "");
+  if (!objectName) {
+    res.status(400).json({ error: "Invalid file path" });
+    return;
+  }
+  try {
+    const { stream, contentType, contentLength } = await streamFileFromStorage(objectName);
+    res.setHeader("Content-Type", contentType);
+    res.setHeader("Content-Disposition", "inline");
+    res.setHeader("X-Frame-Options", "SAMEORIGIN");
+    if (contentLength !== undefined) res.setHeader("Content-Length", contentLength);
+    stream.pipe(res);
+    stream.on("error", () => res.status(500).end());
+  } catch {
+    res.status(404).json({ error: "File not found" });
+  }
 });
 
 router.get("/submissions/stats", requireAdmin, async (_req, res): Promise<void> => {
