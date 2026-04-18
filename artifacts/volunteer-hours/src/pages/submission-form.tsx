@@ -444,6 +444,28 @@ export default function SubmissionForm() {
           </div>
           <CardDescription>Submit your community service hours for faculty review.</CardDescription>
         </CardHeader>
+
+        <div className="mx-6 mb-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3">
+          <p className="text-xs font-semibold text-blue-800 uppercase tracking-wide mb-2">How to Submit</p>
+          <ul className="space-y-1.5">
+            {[
+              "Take a clear picture of your service hour log or scan it as a PDF",
+              "Make sure all sections are filled out (dates, hours, signature, organization info)",
+              "Enter your details below",
+              "Upload your completed log as a file or photo",
+              "Click Submit Hours and wait for confirmation",
+              "If your submission does not go through, check for missing information or retake the photo to ensure everything is clear and readable",
+            ].map((step, i) => (
+              <li key={i} className="flex items-start gap-2 text-xs text-blue-800">
+                <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-blue-200 text-blue-800 font-semibold text-[10px]">
+                  {i + 1}
+                </span>
+                <span>{step}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+
         <CardContent>
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
