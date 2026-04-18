@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -256,6 +256,10 @@ function ScanResultPanel({ scan }: { scan: ScanResult }) {
 }
 
 export default function SubmissionForm() {
+  useEffect(() => {
+    document.title = "ServiceSync";
+  }, []);
+
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
