@@ -3,26 +3,17 @@ import fs from "fs/promises";
 import { randomUUID } from "crypto";
 import path from "path";
 
-const REPLIT_SIDECAR_ENDPOINT = "http://127.0.0.1:1106";
-
 const gcs = new Storage({
+  projectId: process.env.GCS_PROJECT_ID,
   credentials: {
-    audience: "replit",
-    subject_token_type: "access_token",
-    token_url: `${REPLIT_SIDECAR_ENDPOINT}/token`,
-    type: "external_account",
-    credential_source: {
-      url: `${REPLIT_SIDECAR_ENDPOINT}/credential`,
-      format: { type: "json", subject_token_field_name: "access_token" },
-    },
-    universe_domain: "googleapis.com",
+    client_email: process.env.GCS_CLIENT_EMAIL,
+    private_key: process.env.GCS_PRIVATE_KEY?.replace(/\\n/g, "\n"),
   },
-  projectId: "",
-} as any);
+});
 
 function getBucket() {
-  const bucketId = process.env.DEFAULT_OBJECT_STORAGE_BUCKET_ID;
-  if (!bucketId) throw new Error("DEFAULT_OBJECT_STORAGE_BUCKET_ID is not set");
+  const bucketId = process.env.STORAGE_BUCKET;
+  if (!bucketId) throw new Error("STORAGE_BUCKET is not set");
   return gcs.bucket(bucketId);
 }
 
