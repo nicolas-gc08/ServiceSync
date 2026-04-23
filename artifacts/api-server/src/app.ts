@@ -54,6 +54,17 @@ app.use(globalLimiter);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// API routes
 app.use("/api", router);
+
+// Serve the built React frontend for all non-API routes
+const frontendDist = path.resolve(
+  process.cwd(),
+  "../../artifacts/volunteer-hours/dist/public"
+);
+app.use(express.static(frontendDist));
+app.get("*", (_req, res) => {
+  res.sendFile(path.join(frontendDist, "index.html"));
+});
 
 export default app;
