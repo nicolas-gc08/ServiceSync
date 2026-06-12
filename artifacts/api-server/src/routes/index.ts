@@ -10,3 +10,7 @@ router.use(authRouter);
 router.use(submissionsRouter);
 
 export default router;
+
+import studentAuthRouter from "./student-auth";
+// ...
+router.use("/student", studentAuthRouter);
